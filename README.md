@@ -41,3 +41,20 @@ ouverte comme Artifact sur claude.ai, qui fournit la base de données partagée.
 Ouverte directement dans un navigateur (ou sur GitHub Pages), la page passe en
 **mode solo** : on trie seul et la liste « Matchs » montre ses coups de cœur.
 Pour jouer à plusieurs en dehors de claude.ai, il faudrait ajouter un petit serveur.
+
+## Mettre en ligne sur Render
+
+Créer un **Web Service** relié à ce dépôt, avec :
+
+| Réglage | Valeur |
+| --- | --- |
+| Language | Node |
+| Branch | `main` |
+| Build Command | `npm install` |
+| Start Command | `npm start` |
+
+`server.js` sert la page et les affiches sur le port donné par Render. Sur ordinateur :
+`npm start` puis ouvrir http://localhost:3000.
+
+(Autre possibilité : un **Static Site** Render, avec une Build Command vide et
+`.` comme Publish Directory.)
