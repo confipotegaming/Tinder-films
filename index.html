@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-block:env(safe-area-inset-top,0px) env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Ciné Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Mise en page : une seule colonne façon appli mobile, salle de cinéma dans le noir, pile d'affiches au centre. */
+:root {
+  --bg: #120d14;         /* velours de salle */
+  --surface: #1d1620;
+  --line: #34293a;
+  --fg: #f4ece6;
+  --muted: #a8979f;
+  --accent: #ff4d5e;     /* rouge siège de cinéma */
+  --yes: #39d98a;
+  --no: #ff5d6c;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font: 15px/1.45 var(--body);
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+.app { max-width: 460px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding: 14px 16px 18px; gap: 14px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { font: 900 30px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: baseline; gap: 6px; }
+.brand b { color: var(--accent); }
+.ticket { font: 700 13px/1 var(--display); letter-spacing: .14em; border: 1.5px dashed var(--muted); color: var(--muted); padding: 7px 10px; border-radius: 4px; background: none; }
+
+h1, h2 { font-family: var(--display); text-transform: uppercase; text-wrap: balance; margin: 0; }
+h1 { font-size: 46px; line-height: .95; font-weight: 900; }
+h2 { font-size: 22px; font-weight: 800; letter-spacing: .03em; }
+.lead { color: var(--muted); margin: 0; max-width: 34ch; }
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 600; }
+.stack-v { display: flex; flex-direction: column; gap: 12px; }
+
+.btn { border: 0; border-radius: 999px; padding: 14px 20px; font-weight: 700; font-size: 16px; background: var(--accent); color: #1a0a0d; }
+.btn.ghost { background: transparent; border: 1.5px solid var(--line); color: var(--fg); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { flex: 1 1 auto; }
+
+input.code { width: 100%; background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; color: var(--fg);
+  font: 800 28px/1 var(--display); letter-spacing: .3em; text-transform: uppercase; text-align: center; }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { border: 0; background: none; padding: 11px 6px; border-radius: 9px; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+.chips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.chip { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 600; text-align: left; }
+.chip .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); flex: none; }
+.chip .n { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, var(--surface)); }
+.chip[aria-pressed="false"] { opacity: .55; }
+
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.err { color: var(--no); font-size: 14px; margin: 0; min-height: 1.2em; }
+
+/* Salon */
+.roombar { display: flex; align-items: center; gap: 10px; }
+.people { display: flex; }
+.people img { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--bg); margin-left: -8px; background: var(--surface); }
+.people img:first-child { margin-left: 0; }
+.roombar .who { font-size: 13px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--surface); padding: 4px; border-radius: 12px; }
+.tabs button { border: 0; background: none; padding: 10px; border-radius: 9px; font-weight: 600; color: var(--muted); display: flex; justify-content: center; gap: 8px; align-items: center; }
+.tabs button[aria-selected="true"] { background: var(--line); color: var(--fg); }
+.badge { background: var(--accent); color: #1a0a0d; border-radius: 999px; font-size: 12px; padding: 1px 8px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.deck { position: relative; flex: 1; min-height: 430px; }
+.card { position: absolute; inset: 0; border-radius: 22px; overflow: hidden; touch-action: none; user-select: none;
+  background: var(--surface); box-shadow: 0 18px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; will-change: transform; }
+.card.behind { transform: scale(.95) translateY(14px); filter: brightness(.6); }
+.poster { flex: 1; position: relative; padding: 18px; display: flex; flex-direction: column; justify-content: space-between;
+  background: radial-gradient(120% 80% at 20% 10%, hsl(var(--h1) 75% 55%), transparent 60%),
+              linear-gradient(160deg, hsl(var(--h2) 60% 32%), hsl(var(--h2) 55% 10%)); }
+.poster::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .18;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.08) 0 1px, transparent 1px 3px); }
+.art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; -webkit-user-drag: none; }
+.poster.has-art .ttl { display: none; }
+.poster.has-art::after { opacity: 1; background: linear-gradient(rgba(0,0,0,.45), transparent 22%, transparent 75%, rgba(0,0,0,.35)); }
+.info .name { font: 800 24px/1 var(--display); text-transform: uppercase; text-wrap: balance; }
+.credit { font-size: 11px; color: var(--muted); opacity: .7; margin: 0; }
+.poster .meta { display: flex; justify-content: space-between; gap: 8px; align-items: center; position: relative; z-index: 1; }
+.pill { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 5px 9px; border-radius: 999px; background: rgba(0,0,0,.35); color: #fff; }
+.pill.plat { background: var(--c); color: #111; }
+.poster .ttl { font: 900 clamp(38px, 12vw, 54px)/.9 var(--display); text-transform: uppercase; color: #fff; text-wrap: balance;
+  text-shadow: 0 2px 18px rgba(0,0,0,.4); position: relative; z-index: 1; overflow-wrap: anywhere; }
+.info { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 6px; }
+.info .facts { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.info p { margin: 0; }
+.stamp { position: absolute; top: 26px; z-index: 2; font: 900 34px/1 var(--display); letter-spacing: .08em; padding: 4px 12px; border: 4px solid; border-radius: 8px; opacity: 0; text-transform: uppercase; }
+.stamp.yes { left: 20px; color: var(--yes); transform: rotate(-12deg); }
+.stamp.no { right: 20px; color: var(--no); transform: rotate(12deg); }
+
+.actions { display: flex; justify-content: center; gap: 26px; }
+.round { width: 68px; height: 68px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); display: grid; place-items: center; }
+.round svg { width: 30px; height: 30px; }
+.round.no { color: var(--no); } .round.yes { color: var(--yes); }
+.round:active { transform: scale(.93); }
+
+.empty { flex: 1; display: grid; place-items: center; text-align: center; padding: 30px 10px; border: 1.5px dashed var(--line); border-radius: 22px; }
+.empty > div { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.item { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; background: var(--surface); border-radius: 14px; padding: 10px; }
+.thumb { width: 56px; height: 76px; border-radius: 8px; overflow: hidden; position: relative; background: linear-gradient(160deg, hsl(var(--h1) 70% 50%), hsl(var(--h2) 55% 14%)); }
+.item .t { font: 800 20px/1 var(--display); text-transform: uppercase; }
+.item .s { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.item .perfect { color: var(--yes); font-weight: 700; }
+.item > div { min-width: 0; }
+
+/* Écran « C'est un match » */
+.overlay { position: fixed; inset: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(6px);
+  display: grid; place-items: center; padding: 24px 16px; text-align: center; }
+.overlay .box { display: flex; flex-direction: column; gap: 14px; align-items: center; max-width: 360px; }
+.overlay .big { font: 900 64px/.85 var(--display); text-transform: uppercase; color: var(--accent); transform: rotate(-4deg); }
+.overlay .thumb { width: 130px; height: 176px; border-radius: 14px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .overlay .big { animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes pop { from { transform: rotate(-4deg) scale(.4); opacity: 0; } }
+}
+
+/* Filtres de la bibliothèque */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 12px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.tag .n { font-weight: 500; opacity: .7; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.tag[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.tag:disabled { opacity: .3; }
+select.pick { width: 100%; background: var(--surface); color: var(--fg); border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 12px; font: 600 15px var(--body); }
+.sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.link { background: none; border: 0; color: var(--accent); font-weight: 600; font-size: 13px; padding: 0; }
+.sticky { position: sticky; bottom: 0; padding-block: 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(transparent, var(--bg) 30%); }
+.score { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--fg); }
+.pill.score { background: rgba(0,0,0,.45); }
+.summary { font-size: 12.5px; color: var(--muted); }
+</style>
+
+<div class="app" id="app"></div>
+
+<script>
+// =====================================================================
+// Catalogue : uniquement des titres très bien notés.
+// Films : moyenne Letterboxd (sur 5). Séries : note IMDb (sur 10), car Letterboxd ne note pas les séries.
+// Notes approximatives et plateformes indicatives en France : elles bougent avec le temps.
+// =====================================================================
+const PLATFORMS = {
+  netflix: { name: "Netflix", c: "#e5303a" },
+  prime:   { name: "Prime Video", c: "#3fb6f2" },
+  disney:  { name: "Disney+", c: "#6f8cff" },
+  canal:   { name: "Canal+", c: "#f2f2f2" },
+  hbo:     { name: "HBO Max", c: "#a77bff" },
+  apple:   { name: "Apple TV+", c: "#c9c9c9" },
+};
+const GENRES = {
+  act: "Action", ani: "Animation", com: "Comédie", dra: "Drame", pol: "Policier & thriller", hor: "Horreur",
+  sf: "SF & fantastique", rom: "Romance", his: "Histoire & guerre", wes: "Western", mus: "Musique", doc: "Documentaire",
+};
+const DECADES = [["old", "Avant 1970"], ["1970", "Années 70"], ["1980", "Années 80"], ["1990", "Années 90"], ["2000", "Années 2000"], ["2010", "Années 2010"], ["2020", "Années 2020"]];
+const TIERS = [["0", "Tous"], ["1", "Excellents"], ["2", "Cultes"]];
+
+// [titre, année, réalisation, genres, durée (min), plateforme, note Letterboxd, pitch]
+const FILMS = [
+["Parasite",2019,"Bong Joon-ho","dra pol com",132,"canal",4.5,"Une famille pauvre s'infiltre, un par un, au service d'une famille très riche."],
+["Memories of Murder",2003,"Bong Joon-ho","pol",132,"canal",4.3,"Deux flics dépassés traquent le premier tueur en série de Corée."],
+["Le Voyage de Chihiro",2001,"Hayao Miyazaki","ani sf",125,"netflix",4.4,"Chihiro doit sauver ses parents, changés en cochons, dans des bains pour esprits."],
+["Princesse Mononoké",1997,"Hayao Miyazaki","ani sf",134,"netflix",4.4,"Un prince maudit pris dans la guerre entre la forêt et les forges des hommes."],
+["Mon voisin Totoro",1988,"Hayao Miyazaki","ani",86,"netflix",4.2,"Deux sœurs à la campagne découvrent un gros esprit de la forêt."],
+["Le Château ambulant",2004,"Hayao Miyazaki","ani sf rom",119,"netflix",4.3,"Sophie, changée en vieille dame, trouve refuge chez le magicien Hauru."],
+["Le Garçon et le Héron",2023,"Hayao Miyazaki","ani sf",124,"netflix",3.9,"Un garçon en deuil suit un héron qui parle vers un monde étrange."],
+["Le Tombeau des lucioles",1988,"Isao Takahata","ani his",89,"netflix",4.4,"Un frère et sa petite sœur tentent de survivre au Japon en 1945."],
+["Your Name",2016,"Makoto Shinkai","ani rom",106,"prime",4.2,"Un garçon de Tokyo et une fille de la campagne échangent leurs corps en rêve."],
+["Perfect Blue",1997,"Satoshi Kon","ani pol",81,"prime",4.2,"Une chanteuse devenue actrice perd pied entre rêve et réalité."],
+["Akira",1988,"Katsuhiro Ōtomo","ani sf",124,"prime",4.1,"Néo-Tokyo, 2019 : un motard découvre des pouvoirs qui le dépassent."],
+["Spider-Man : New Generation",2018,"Persichetti, Ramsey, Rothman","ani act",117,"netflix",4.4,"Miles Morales devient Spider-Man et rencontre les autres Spider-Gens."],
+["Spider-Man : Across the Spider-Verse",2023,"Dos Santos, Powers, Thompson","ani act",140,"netflix",4.4,"Miles traverse le multivers et se heurte à la Spider-Société."],
+["WALL-E",2008,"Andrew Stanton","ani sf",98,"disney",4.2,"Un petit robot nettoyeur, seul sur Terre, tombe amoureux."],
+["Ratatouille",2007,"Brad Bird","ani com",111,"disney",4.1,"Un rat qui cuisine mieux que tout Paris."],
+["Les Indestructibles",2004,"Brad Bird","ani act",115,"disney",4.0,"Une famille de super-héros à la retraite forcée reprend du service."],
+["Là-haut",2009,"Pete Docter","ani",96,"disney",4.1,"Un veuf grincheux s'envole avec sa maison et un scout bavard."],
+["Vice-Versa",2015,"Pete Docter","ani com",95,"disney",4.0,"Les émotions d'une fillette de 11 ans paniquent lors d'un déménagement."],
+["Coco",2017,"Lee Unkrich","ani mus",105,"disney",4.0,"Miguel rêve de musique et se retrouve au pays des morts."],
+["Toy Story",1995,"John Lasseter","ani com",81,"disney",4.0,"Les jouets d'Andy s'animent quand il a le dos tourné."],
+["Le Roi lion",1994,"Roger Allers, Rob Minkoff","ani mus",88,"disney",4.0,"Simba, lionceau exilé, doit reprendre sa place."],
+["Fantastic Mr. Fox",2009,"Wes Anderson","ani com",87,"disney",4.1,"Un renard rangé replonge dans le vol de poules, et les fermiers ripostent."],
+["Wolfwalkers",2020,"Tomm Moore, Ross Stewart","ani sf",103,"apple",4.2,"En Irlande, une apprentie chasseuse se lie d'amitié avec une fille-louve."],
+["Le Robot sauvage",2024,"Chris Sanders","ani sf",102,"canal",4.3,"Un robot échoué sur une île sauvage adopte un oison orphelin."],
+["Flow",2024,"Gints Zilbalodis","ani",85,"canal",4.2,"Un chat survit à une inondation sur un bateau avec d'autres animaux. Sans dialogue."],
+["Pinocchio par Guillermo del Toro",2022,"Guillermo del Toro","ani sf",117,"netflix",4.0,"Le pantin de bois prend vie dans l'Italie fasciste."],
+["Persepolis",2007,"Marjane Satrapi, Vincent Paronnaud","ani dra",96,"canal",4.0,"Une enfance à Téhéran pendant la révolution islamique."],
+["Le Parrain",1972,"Francis Ford Coppola","pol dra",175,"canal",4.5,"Le fils réservé d'un chef mafieux devient le nouveau parrain."],
+["Le Parrain, 2e partie",1974,"Francis Ford Coppola","pol dra",202,"canal",4.4,"L'ascension du jeune Vito et le règne glacé de Michael."],
+["Apocalypse Now",1979,"Francis Ford Coppola","his",147,"prime",4.3,"Un capitaine remonte un fleuve du Vietnam pour éliminer un colonel devenu fou."],
+["Les Affranchis",1990,"Martin Scorsese","pol",146,"hbo",4.4,"Trente ans dans la mafia de New York, vus par un petit voyou."],
+["Les Infiltrés",2006,"Martin Scorsese","pol",151,"hbo",4.2,"Un flic chez les gangsters, un gangster chez les flics."],
+["Taxi Driver",1976,"Martin Scorsese","dra pol",114,"netflix",4.2,"Un chauffeur de taxi insomniaque sombre dans le New York de la nuit."],
+["Raging Bull",1980,"Martin Scorsese","dra",129,"prime",4.1,"La vie d'un boxeur autodestructeur, en noir et blanc."],
+["Casino",1995,"Martin Scorsese","pol",178,"canal",4.2,"Las Vegas dans les années 70, tenue par la mafia."],
+["Le Loup de Wall Street",2013,"Martin Scorsese","com",180,"prime",4.1,"Jordan Belfort, courtier escroc, et tous ses excès."],
+["Killers of the Flower Moon",2023,"Martin Scorsese","pol his",206,"apple",4.0,"Des meurtres en série chez les Osage, riches de leur pétrole."],
+["Pulp Fiction",1994,"Quentin Tarantino","pol com",154,"prime",4.3,"Des tueurs bavards, un boxeur et une valise mystérieuse à Los Angeles."],
+["Reservoir Dogs",1992,"Quentin Tarantino","pol",99,"prime",4.1,"Un braquage a mal tourné. Il y a un traître parmi eux."],
+["Inglourious Basterds",2009,"Quentin Tarantino","his act",153,"canal",4.3,"Un commando américain chasse les nazis dans la France occupée."],
+["Django Unchained",2012,"Quentin Tarantino","wes",165,"netflix",4.2,"Un esclave affranchi part libérer sa femme avec un chasseur de primes."],
+["Kill Bill : Volume 1",2003,"Quentin Tarantino","act",111,"prime",4.0,"La Mariée se réveille du coma et dresse sa liste de vengeance."],
+["Il était une fois… à Hollywood",2019,"Quentin Tarantino","com dra",161,"netflix",3.9,"Un acteur sur le déclin et sa doublure dans le Hollywood de 1969."],
+["2001 : l'Odyssée de l'espace",1968,"Stanley Kubrick","sf",149,"hbo",4.3,"De l'aube de l'humanité à un vaisseau vers Jupiter, piloté par HAL."],
+["Shining",1980,"Stanley Kubrick","hor",146,"hbo",4.3,"Un hiver seul dans un hôtel isolé. Jack perd la tête."],
+["Orange mécanique",1971,"Stanley Kubrick","sf dra",136,"hbo",4.1,"Alex, jeune voyou, sert de cobaye à une thérapie radicale."],
+["Full Metal Jacket",1987,"Stanley Kubrick","his",116,"hbo",4.1,"Des recrues brisées par l'instruction, puis jetées au Vietnam."],
+["Barry Lyndon",1975,"Stanley Kubrick","his",185,"hbo",4.3,"L'ascension et la chute d'un aventurier irlandais au XVIIIe siècle."],
+["Docteur Folamour",1964,"Stanley Kubrick","com",95,"netflix",4.3,"Un général fou lance une attaque nucléaire. Personne ne sait l'arrêter."],
+["The Dark Knight",2008,"Christopher Nolan","act pol",152,"hbo",4.5,"Batman face au Joker, qui veut faire basculer Gotham dans le chaos."],
+["Inception",2010,"Christopher Nolan","sf act",148,"hbo",4.2,"Une équipe de voleurs implante une idée dans un rêve."],
+["Interstellar",2014,"Christopher Nolan","sf",169,"hbo",4.4,"Des astronautes cherchent une nouvelle planète pour l'humanité."],
+["Le Prestige",2006,"Christopher Nolan","pol sf",130,"hbo",4.2,"Deux magiciens rivaux prêts à tout pour le tour parfait."],
+["Memento",2000,"Christopher Nolan","pol",113,"prime",4.1,"Un homme sans mémoire immédiate traque l'assassin de sa femme."],
+["Oppenheimer",2023,"Christopher Nolan","his",180,"canal",4.2,"Le physicien qui a dirigé la fabrication de la bombe atomique."],
+["Dune",2021,"Denis Villeneuve","sf",155,"hbo",3.9,"Paul Atréides arrive sur Arrakis, la planète des sables."],
+["Dune : Deuxième partie",2024,"Denis Villeneuve","sf act",166,"hbo",4.4,"Paul s'allie aux Fremen pour venger sa famille."],
+["Blade Runner 2049",2017,"Denis Villeneuve","sf",164,"netflix",4.2,"Un réplicant policier découvre un secret qui peut tout changer."],
+["Premier Contact",2016,"Denis Villeneuve","sf",116,"netflix",4.1,"Une linguiste doit comprendre la langue d'extraterrestres."],
+["Prisoners",2013,"Denis Villeneuve","pol",153,"hbo",4.0,"Deux fillettes disparaissent. Un père se fait justice lui-même."],
+["Incendies",2010,"Denis Villeneuve","dra",131,"canal",4.3,"Des jumeaux partent au Moyen-Orient sur les traces de leur mère."],
+["Alien, le huitième passager",1979,"Ridley Scott","hor sf",117,"disney",4.3,"Un équipage de cargo spatial et une créature à bord."],
+["Blade Runner",1982,"Ridley Scott","sf",117,"hbo",4.1,"Los Angeles, 2019 : un chasseur traque des androïdes en fuite."],
+["Gladiator",2000,"Ridley Scott","act his",155,"canal",4.1,"Un général romain trahi devient gladiateur."],
+["Aliens, le retour",1986,"James Cameron","act sf",137,"disney",4.1,"Ripley retourne sur la planète, avec des marines cette fois."],
+["Terminator 2",1991,"James Cameron","act sf",137,"canal",4.2,"Un Terminator protège le jeune John Connor d'un modèle plus avancé."],
+["Titanic",1997,"James Cameron","rom his",195,"disney",3.9,"Rose et Jack s'aiment à bord d'un paquebot qui ne devait jamais couler."],
+["Mad Max : Fury Road",2015,"George Miller","act",120,"hbo",4.2,"Une course-poursuite de deux heures dans un désert post-apocalyptique."],
+["Seven",1995,"David Fincher","pol",127,"hbo",4.2,"Deux inspecteurs traquent un tueur inspiré des sept péchés capitaux."],
+["Fight Club",1999,"David Fincher","dra",139,"disney",4.3,"Un employé insomniaque fonde un club de combat clandestin."],
+["Zodiac",2007,"David Fincher","pol",157,"hbo",4.1,"Des années d'obsession autour d'un tueur jamais arrêté."],
+["The Social Network",2010,"David Fincher","dra",120,"netflix",4.1,"La création de Facebook, entre génie et trahisons."],
+["Gone Girl",2014,"David Fincher","pol",149,"disney",4.1,"Le jour de leur anniversaire de mariage, sa femme disparaît."],
+["Le Silence des agneaux",1991,"Jonathan Demme","pol hor",118,"prime",4.3,"Une jeune agente du FBI consulte Hannibal Lecter."],
+["Les Évadés",1994,"Frank Darabont","dra",142,"hbo",4.5,"Un banquier condamné à tort garde espoir pendant vingt ans de prison."],
+["La Ligne verte",1999,"Frank Darabont","dra sf",189,"hbo",4.2,"Un gardien de prison et un condamné à mort aux pouvoirs étranges."],
+["Retour vers le futur",1985,"Robert Zemeckis","sf com",116,"canal",4.3,"Marty voyage en 1955 et doit faire tomber ses parents amoureux."],
+["Forrest Gump",1994,"Robert Zemeckis","dra com",142,"canal",4.0,"Un homme simple traverse trente ans d'histoire américaine."],
+["Les Dents de la mer",1975,"Steven Spielberg","hor",124,"canal",4.2,"Un requin terrorise une station balnéaire en plein été."],
+["Les Aventuriers de l'arche perdue",1981,"Steven Spielberg","act",115,"disney",4.2,"Indiana Jones contre les nazis pour l'arche d'alliance."],
+["E.T. l'extra-terrestre",1982,"Steven Spielberg","sf",115,"canal",4.0,"Un garçon cache un extraterrestre perdu dans sa maison."],
+["Jurassic Park",1993,"Steven Spielberg","sf act",127,"canal",4.0,"Un parc de dinosaures clonés. Les clôtures lâchent."],
+["La Liste de Schindler",1993,"Steven Spielberg","his",195,"canal",4.5,"Un industriel nazi sauve plus de mille Juifs."],
+["Il faut sauver le soldat Ryan",1998,"Steven Spielberg","his",169,"canal",4.2,"Après le Débarquement, une escouade cherche un seul soldat."],
+["Arrête-moi si tu peux",2002,"Steven Spielberg","pol com",141,"netflix",4.1,"Un jeune faussaire génial et l'agent du FBI qui le traque."],
+["Star Wars : Un nouvel espoir",1977,"George Lucas","sf act",121,"disney",4.1,"Un garçon de ferme, une princesse et un contrebandier contre l'Empire."],
+["L'Empire contre-attaque",1980,"Irvin Kershner","sf act",124,"disney",4.3,"Luke s'entraîne avec Yoda pendant que Vador traque ses amis."],
+["Le Seigneur des anneaux : La Communauté de l'anneau",2001,"Peter Jackson","sf",178,"hbo",4.4,"Un hobbit doit détruire l'anneau du Seigneur des ténèbres."],
+["Le Seigneur des anneaux : Les Deux Tours",2002,"Peter Jackson","sf act",179,"hbo",4.4,"La Communauté est dispersée. La guerre commence au Gouffre de Helm."],
+["Le Seigneur des anneaux : Le Retour du roi",2003,"Peter Jackson","sf act",201,"hbo",4.6,"La bataille finale pour la Terre du Milieu."],
+["Matrix",1999,"Lana et Lilly Wachowski","sf act",136,"hbo",4.2,"Un hacker découvre que le monde est une simulation."],
+["Heat",1995,"Michael Mann","pol act",170,"hbo",4.3,"Un flic obsédé contre un braqueur méthodique."],
+["Piège de cristal",1988,"John McTiernan","act",132,"disney",4.1,"Un flic seul contre des terroristes dans une tour de bureaux."],
+["Top Gun : Maverick",2022,"Joseph Kosinski","act",131,"canal",4.0,"Maverick forme de jeunes pilotes pour une mission impossible."],
+["F1",2025,"Joseph Kosinski","act",155,"apple",3.9,"Un pilote vétéran revient en Formule 1 pour sauver une écurie."],
+["Mission : Impossible – Fallout",2018,"Christopher McQuarrie","act",147,"canal",4.0,"Ethan Hunt court après du plutonium. Puis après un hélicoptère."],
+["John Wick : Chapitre 4",2023,"Chad Stahelski","act",169,"prime",3.9,"John Wick affronte la Grande Table, de Paris à Osaka."],
+["Logan",2017,"James Mangold","act wes",137,"disney",4.0,"Un Wolverine vieillissant protège une fillette mutante."],
+["Le Mans 66",2019,"James Mangold","act dra",152,"disney",4.1,"Ford défie Ferrari aux 24 Heures du Mans."],
+["Avengers : Endgame",2019,"Anthony et Joe Russo","act sf",181,"disney",3.9,"Après le claquement de doigts, les Avengers tentent le tout pour le tout."],
+["Le Bon, la Brute et le Truand",1966,"Sergio Leone","wes",178,"prime",4.4,"Trois hommes et un trésor caché pendant la guerre de Sécession."],
+["Il était une fois dans l'Ouest",1968,"Sergio Leone","wes",166,"canal",4.4,"Un homme à l'harmonica, une veuve et un chemin de fer."],
+["No Country for Old Men",2007,"Joel et Ethan Coen","pol wes",122,"prime",4.2,"Un chasseur trouve deux millions de dollars. Un tueur le suit."],
+["Fargo",1996,"Joel et Ethan Coen","pol com",98,"prime",4.1,"Un faux enlèvement tourne au carnage dans la neige du Minnesota."],
+["The Big Lebowski",1998,"Joel et Ethan Coen","com",117,"canal",4.1,"Le Duc veut juste qu'on lui rembourse son tapis."],
+["Psychose",1960,"Alfred Hitchcock","hor pol",109,"canal",4.3,"Une secrétaire en fuite s'arrête au motel Bates."],
+["Fenêtre sur cour",1954,"Alfred Hitchcock","pol",112,"canal",4.3,"Immobilisé, un photographe croit voir un meurtre chez le voisin."],
+["Sueurs froides",1958,"Alfred Hitchcock","pol rom",128,"canal",4.2,"Un ex-policier sujet au vertige suit une femme mystérieuse."],
+["La Mort aux trousses",1959,"Alfred Hitchcock","pol act",136,"hbo",4.2,"Un publicitaire est pris pour un espion et doit fuir."],
+["The Thing",1982,"John Carpenter","hor sf",109,"canal",4.3,"En Antarctique, une créature prend l'apparence de ses victimes."],
+["L'Exorciste",1973,"William Friedkin","hor",122,"hbo",4.0,"Une fillette possédée, deux prêtres et une nuit très longue."],
+["Rosemary's Baby",1968,"Roman Polanski","hor",137,"canal",4.1,"Une jeune femme enceinte soupçonne ses voisins trop gentils."],
+["Chinatown",1974,"Roman Polanski","pol",130,"canal",4.2,"Un détective privé plonge dans un scandale de l'eau à Los Angeles."],
+["Le Pianiste",2002,"Roman Polanski","his",150,"canal",4.3,"Un pianiste juif survit dans le ghetto de Varsovie."],
+["Get Out",2017,"Jordan Peele","hor",104,"canal",4.1,"Un week-end chez les parents de sa copine. Quelque chose cloche."],
+["Hérédité",2018,"Ari Aster","hor",127,"prime",4.0,"Après la mort de la grand-mère, une famille se désagrège."],
+["The Lighthouse",2019,"Robert Eggers","hor",109,"prime",4.0,"Deux gardiens de phare sombrent dans la folie."],
+["Nosferatu",2024,"Robert Eggers","hor",132,"canal",3.8,"Une jeune femme hantée par un vampire très ancien."],
+["Sinners",2025,"Ryan Coogler","hor mus",137,"hbo",4.2,"Mississippi, 1932 : deux jumeaux ouvrent un club de blues. Les vampires arrivent."],
+["The Substance",2024,"Coralie Fargeat","hor",141,"canal",3.8,"Une star vieillissante essaie un produit qui crée une version plus jeune d'elle-même."],
+["Une bataille après l'autre",2025,"Paul Thomas Anderson","act com",162,"hbo",4.4,"Un ex-révolutionnaire paranoïaque doit sauver sa fille."],
+["There Will Be Blood",2007,"Paul Thomas Anderson","dra",158,"canal",4.4,"Un prospecteur de pétrole prêt à tout dans la Californie de 1900."],
+["Phantom Thread",2017,"Paul Thomas Anderson","rom dra",130,"canal",4.1,"Un couturier londonien maniaque et sa muse."],
+["Everything Everywhere All at Once",2022,"Daniel Kwan, Daniel Scheinert","sf com act",139,"prime",4.2,"Une laverie, un contrôle fiscal et le multivers à sauver."],
+["The Grand Budapest Hotel",2014,"Wes Anderson","com",99,"disney",4.2,"Un concierge et son groom accusés d'un meurtre dans un palace."],
+["Moonrise Kingdom",2012,"Wes Anderson","com rom",94,"canal",4.0,"Deux enfants de 12 ans fuguent ensemble sur une île."],
+["Shaun of the Dead",2004,"Edgar Wright","com hor",99,"canal",3.9,"Shaun veut récupérer sa copine. Les zombies compliquent tout."],
+["Hot Fuzz",2007,"Edgar Wright","com pol act",121,"canal",4.0,"Un super-flic londonien muté dans un village trop paisible."],
+["Paddington 2",2017,"Paul King","com",103,"canal",4.2,"Paddington, accusé à tort, se retrouve en prison."],
+["Un jour sans fin",1993,"Harold Ramis","com rom",101,"netflix",4.0,"Un présentateur météo revit le même jour, encore et encore."],
+["Monty Python : Sacré Graal !",1975,"Terry Gilliam, Terry Jones","com",92,"netflix",4.1,"Le roi Arthur cherche le Graal. Sans chevaux, avec des noix de coco."],
+["The Truman Show",1998,"Peter Weir","com sf",103,"canal",4.2,"Truman découvre que sa vie est une émission de télé."],
+["Le Cercle des poètes disparus",1989,"Peter Weir","dra",128,"disney",4.1,"Un professeur apprend à ses élèves à penser par eux-mêmes."],
+["Princess Bride",1987,"Rob Reiner","com sf rom",98,"disney",4.0,"Un conte de cape et d'épée, de géants et de grand amour."],
+["Quand Harry rencontre Sally",1989,"Rob Reiner","rom com",96,"prime",4.0,"Un homme et une femme peuvent-ils être amis ?"],
+["Le Fabuleux Destin d'Amélie Poulain",2001,"Jean-Pierre Jeunet","com rom",122,"netflix",4.0,"Une serveuse de Montmartre décide de faire le bonheur des autres."],
+["Intouchables",2011,"Éric Toledano, Olivier Nakache","com",112,"canal",3.9,"Un riche tétraplégique engage un jeune de banlieue comme aide."],
+["OSS 117 : Le Caire, nid d'espions",2006,"Michel Hazanavicius","com",99,"canal",3.9,"Un espion français sûr de lui et très mal informé en Égypte."],
+["Le Dîner de cons",1998,"Francis Veber","com",80,"canal",3.9,"Chaque semaine, on invite un idiot à dîner. Celui-ci est redoutable."],
+["La Haine",1995,"Mathieu Kassovitz","dra",98,"canal",4.3,"Vingt-quatre heures avec trois amis de banlieue après une émeute."],
+["Un prophète",2009,"Jacques Audiard","pol",155,"canal",4.1,"Un jeune détenu apprend les règles de la prison et grimpe."],
+["Portrait de la jeune fille en feu",2019,"Céline Sciamma","rom his",122,"canal",4.3,"En 1770, une peintre doit faire en secret le portrait d'une jeune femme."],
+["Anatomie d'une chute",2023,"Justine Triet","dra pol",151,"canal",4.1,"Un homme meurt au pied de son chalet. Sa femme est accusée."],
+["Le Comte de Monte-Cristo",2024,"Alexandre de La Patellière, Matthieu Delaporte","act his",178,"canal",3.9,"Edmond Dantès s'évade du château d'If et prépare sa vengeance."],
+["Léon",1994,"Luc Besson","pol act",110,"netflix",4.1,"Un tueur à gages solitaire recueille une fillette de 12 ans."],
+["Les 400 Coups",1959,"François Truffaut","dra",99,"canal",4.2,"Antoine Doinel, 12 ans, glisse de bêtise en fugue."],
+["À bout de souffle",1960,"Jean-Luc Godard","pol rom",90,"canal",3.9,"Un petit voyou en cavale et une Américaine à Paris."],
+["Le Samouraï",1967,"Jean-Pierre Melville","pol",105,"canal",4.2,"Un tueur à gages solitaire, un alibi parfait, un témoin de trop."],
+["Le Salaire de la peur",1953,"Henri-Georges Clouzot","act dra",131,"canal",4.4,"Quatre hommes transportent de la nitroglycérine sur des pistes défoncées."],
+["Les Diaboliques",1955,"Henri-Georges Clouzot","pol",117,"canal",4.2,"Une épouse et une maîtresse tuent le directeur d'école. Le corps disparaît."],
+["Cléo de 5 à 7",1962,"Agnès Varda","dra",90,"canal",4.2,"Deux heures dans Paris avec une chanteuse qui attend un diagnostic."],
+["Les Parapluies de Cherbourg",1964,"Jacques Demy","mus rom",91,"canal",4.1,"Un amour de jeunesse entièrement chanté, contrarié par la guerre."],
+["Playtime",1967,"Jacques Tati","com",124,"canal",4.2,"M. Hulot se perd dans un Paris de verre et d'acier."],
+["La Grande Illusion",1937,"Jean Renoir","his",114,"canal",4.2,"Des officiers français prisonniers en 14-18 préparent leur évasion."],
+["Les Temps modernes",1936,"Charlie Chaplin","com",87,"canal",4.4,"Charlot ouvrier, broyé par la chaîne de montage."],
+["Douze hommes en colère",1957,"Sidney Lumet","dra",96,"prime",4.6,"Un juré doute. Les onze autres veulent rentrer chez eux."],
+["Casablanca",1942,"Michael Curtiz","rom his",102,"hbo",4.3,"Dans un café du Maroc, Rick retrouve l'amour de sa vie."],
+["Chantons sous la pluie",1952,"Stanley Donen, Gene Kelly","mus com",103,"hbo",4.3,"Hollywood passe au parlant et une star a une voix de crécelle."],
+["Le Magicien d'Oz",1939,"Victor Fleming","mus sf",102,"hbo",4.0,"Dorothy suit la route de briques jaunes."],
+["Certains l'aiment chaud",1959,"Billy Wilder","com",121,"prime",4.2,"Deux musiciens déguisés en femmes pour échapper à la mafia."],
+["La Garçonnière",1960,"Billy Wilder","com rom",125,"prime",4.3,"Un employé prête son appartement à ses chefs pour leurs aventures."],
+["Boulevard du crépuscule",1950,"Billy Wilder","dra",110,"canal",4.4,"Un scénariste fauché chez une star du muet oubliée."],
+["Lawrence d'Arabie",1962,"David Lean","his",228,"netflix",4.3,"Un officier britannique unit les tribus arabes contre les Ottomans."],
+["Vol au-dessus d'un nid de coucou",1975,"Miloš Forman","dra",133,"hbo",4.3,"Un détenu se fait interner pour échapper à la prison."],
+["Amadeus",1984,"Miloš Forman","dra mus his",160,"hbo",4.3,"Salieri raconte sa jalousie envers le génie de Mozart."],
+["Les Sept Samouraïs",1954,"Akira Kurosawa","act his",207,"prime",4.6,"Des paysans engagent sept samouraïs pour défendre leur village."],
+["Ran",1985,"Akira Kurosawa","his",162,"prime",4.4,"Le Roi Lear dans le Japon féodal."],
+["Le Voyage à Tokyo",1953,"Yasujirō Ozu","dra",136,"canal",4.4,"Des parents âgés rendent visite à leurs enfants trop occupés."],
+["In the Mood for Love",2000,"Wong Kar-wai","rom",98,"canal",4.4,"Hong Kong, 1962 : deux voisins trompés se rapprochent."],
+["Chungking Express",1994,"Wong Kar-wai","rom",102,"canal",4.3,"Deux policiers à Hong Kong, deux histoires d'amour ratées."],
+["Old Boy",2003,"Park Chan-wook","pol",120,"prime",4.2,"Enfermé quinze ans sans savoir pourquoi, un homme est libéré."],
+["Mademoiselle",2016,"Park Chan-wook","rom pol",145,"prime",4.4,"Une servante engagée pour escroquer une riche héritière."],
+["Une affaire de famille",2018,"Hirokazu Kore-eda","dra",121,"canal",4.3,"Une famille de petits voleurs recueille une fillette."],
+["Une séparation",2011,"Asghar Farhadi","dra",123,"canal",4.3,"À Téhéran, un divorce déclenche une spirale de mensonges."],
+["La Vie des autres",2006,"Florian Henckel von Donnersmarck","dra pol",137,"prime",4.3,"Un agent de la Stasi espionne un couple d'artistes."],
+["Le Septième Sceau",1957,"Ingmar Bergman","dra",96,"canal",4.2,"Un chevalier joue sa vie aux échecs contre la Mort."],
+["Stalker",1979,"Andreï Tarkovski","sf",162,"prime",4.4,"Un guide conduit deux hommes dans la Zone, vers une chambre qui exauce les vœux."],
+["La Cité de Dieu",2002,"Fernando Meirelles, Kátia Lund","pol",130,"prime",4.4,"Un jeune photographe grandit dans une favela de Rio en guerre."],
+["Le Labyrinthe de Pan",2006,"Guillermo del Toro","sf his",118,"prime",4.1,"Espagne, 1944 : une fillette fuit la guerre dans un monde de contes."],
+["Les Fils de l'homme",2006,"Alfonso Cuarón","sf",109,"canal",4.2,"Plus aucun enfant ne naît. Une jeune femme est enceinte."],
+["Roma",2018,"Alfonso Cuarón","dra",135,"netflix",3.9,"Une année dans la vie d'une domestique à Mexico, au début des années 70."],
+["Godzilla Minus One",2023,"Takashi Yamazaki","sf act",125,"netflix",4.2,"Japon, après-guerre : un ancien pilote kamikaze face à Godzilla."],
+["Whiplash",2014,"Damien Chazelle","dra mus",107,"netflix",4.4,"Un jeune batteur et un professeur tyrannique."],
+["La La Land",2016,"Damien Chazelle","mus rom",128,"prime",4.1,"Une actrice et un pianiste de jazz à Los Angeles."],
+["Her",2013,"Spike Jonze","rom sf",126,"hbo",4.0,"Un homme tombe amoureux de son assistant vocal."],
+["Eternal Sunshine of the Spotless Mind",2004,"Michel Gondry","rom sf",108,"canal",4.2,"Après la rupture, il fait effacer son ex de sa mémoire."],
+["Avant l'aube",1995,"Richard Linklater","rom",101,"hbo",4.2,"Rencontrés dans un train, ils ont une nuit à Vienne."],
+["Avant le coucher du soleil",2004,"Richard Linklater","rom",80,"hbo",4.3,"Neuf ans plus tard, ils se retrouvent à Paris."],
+["Call Me by Your Name",2017,"Luca Guadagnino","rom",132,"netflix",4.1,"Un été dans le nord de l'Italie, un premier amour."],
+["Challengers",2024,"Luca Guadagnino","dra rom",131,"prime",3.9,"Un triangle amoureux sur un court de tennis."],
+["Past Lives",2023,"Celine Song","rom",106,"canal",4.2,"Deux amis d'enfance coréens se retrouvent vingt ans plus tard."],
+["Aftersun",2022,"Charlotte Wells","dra",101,"canal",4.2,"Les souvenirs de vacances d'une fille avec son jeune père."],
+["Moonlight",2016,"Barry Jenkins","dra",111,"prime",4.0,"Trois âges d'un jeune homme noir à Miami."],
+["Orgueil et Préjugés",2005,"Joe Wright","rom his",129,"canal",4.1,"Elizabeth Bennet et M. Darcy, préjugés compris."],
+["Les Filles du docteur March",2019,"Greta Gerwig","dra rom",135,"netflix",4.1,"Quatre sœurs grandissent pendant la guerre de Sécession."],
+["Lady Bird",2017,"Greta Gerwig","com dra",94,"prime",3.9,"Une lycéenne de Sacramento veut partir loin de sa mère."],
+["Barbie",2023,"Greta Gerwig","com",114,"hbo",3.7,"Barbie quitte Barbieland pour le monde réel. Ken suit."],
+["Pauvres Créatures",2023,"Yórgos Lánthimos","com sf",141,"disney",4.0,"Une jeune femme ramenée à la vie découvre le monde."],
+["La Favorite",2018,"Yórgos Lánthimos","his com",119,"disney",4.0,"Deux cousines se disputent les faveurs de la reine Anne."],
+["Les Banshees d'Inisherin",2022,"Martin McDonagh","com dra",114,"disney",4.1,"Sur une île irlandaise, un homme décide soudain de ne plus parler à son ami."],
+["Bons baisers de Bruges",2008,"Martin McDonagh","com pol",107,"canal",4.0,"Deux tueurs à gages planqués à Bruges."],
+["À couteaux tirés",2019,"Rian Johnson","pol com",130,"prime",4.0,"Un riche romancier meurt. Benoit Blanc enquête sur la famille."],
+["Anora",2024,"Sean Baker","com dra",139,"canal",4.0,"Une danseuse épouse le fils d'un oligarque russe. La famille débarque."],
+["The Florida Project",2017,"Sean Baker","dra",111,"prime",4.0,"Un été d'enfance dans un motel près de Disney World."],
+["Will Hunting",1997,"Gus Van Sant","dra",126,"prime",4.1,"Un génie des maths, agent d'entretien, et le psy qui l'aide."],
+["Rocky",1976,"John G. Avildsen","dra",120,"prime",4.0,"Un boxeur de seconde zone obtient un combat pour le titre."],
+["Trainspotting",1996,"Danny Boyle","dra com",94,"canal",4.0,"Des junkies d'Édimbourg, entre fous rires et descentes."],
+["Ex Machina",2014,"Alex Garland","sf",108,"canal",3.9,"Un programmeur doit tester l'intelligence d'un robot."],
+["Drive",2011,"Nicolas Winding Refn","pol",100,"prime",3.9,"Cascadeur le jour, chauffeur pour braqueurs la nuit."],
+["CODA",2021,"Sian Heder","com dra mus",111,"apple",3.8,"La seule entendante d'une famille sourde rêve de chanter."],
+["La Zone d'intérêt",2023,"Jonathan Glazer","his",105,"canal",3.9,"La vie paisible d'une famille, de l'autre côté du mur d'Auschwitz."],
+["Free Solo",2018,"Elizabeth Chai Vasarhelyi, Jimmy Chin","doc",100,"disney",4.0,"Alex Honnold escalade El Capitan sans corde."],
+["Visages Villages",2017,"Agnès Varda, JR","doc",89,"canal",4.2,"Agnès Varda et JR collent des portraits géants dans les villages."],
+["Les Glaneurs et la Glaneuse",2000,"Agnès Varda","doc",82,"canal",4.1,"Ceux qui ramassent ce que les autres jettent."],
+["Senna",2010,"Asif Kapadia","doc",106,"canal",4.1,"La carrière d'Ayrton Senna, uniquement avec des images d'archives."],
+["Amy",2015,"Asif Kapadia","doc mus",128,"canal",3.9,"La vie et la chute d'Amy Winehouse."],
+];
+
+// [titre, année de début, création, genres, plateforme, note IMDb, pitch]
+const SERIES = [
+["Breaking Bad",2008,"Vince Gilligan","pol dra","netflix",9.5,"Un prof de chimie malade se lance dans la fabrication de drogue."],
+["Better Call Saul",2015,"Vince Gilligan, Peter Gould","pol dra","netflix",9.0,"Comment le petit avocat Jimmy McGill devient Saul Goodman."],
+["Stranger Things",2016,"Matt et Ross Duffer","sf hor","netflix",8.6,"Des ados, une ville tranquille et une dimension parallèle qui ne l'est pas du tout."],
+["Dark",2017,"Baran bo Odar, Jantje Friese","sf","netflix",8.7,"Quatre familles, une grotte, et le temps qui se mord la queue."],
+["Arcane",2021,"Christian Linke, Alex Yee","ani sf","netflix",9.0,"Deux sœurs que tout oppose entre Piltover la riche et Zaun la souterraine."],
+["The Crown",2016,"Peter Morgan","his dra","netflix",8.6,"Le règne d'Elizabeth II, des coulisses de Buckingham aux crises d'État."],
+["Mindhunter",2017,"Joe Penhall","pol","netflix",8.6,"Deux agents du FBI interrogent des tueurs en série dans les années 70."],
+["Narcos",2015,"Chris Brancato, Carlo Bernard, Doug Miro","pol","netflix",8.7,"La traque de Pablo Escobar par deux agents américains."],
+["Peaky Blinders",2013,"Steven Knight","pol his","netflix",8.7,"Un gang de Birmingham au lendemain de la Première Guerre mondiale."],
+["Black Mirror",2011,"Charlie Brooker","sf","netflix",8.7,"Des histoires indépendantes sur le côté sombre de nos écrans."],
+["BoJack Horseman",2014,"Raphael Bob-Waksberg","ani com","netflix",8.8,"Un cheval, ex-star de sitcom, déprime à Hollywood."],
+["Squid Game",2021,"Hwang Dong-hyuk","pol","netflix",8.0,"456 joueurs endettés, des jeux d'enfants, un seul gagnant."],
+["Adolescence",2025,"Jack Thorne, Stephen Graham","dra","netflix",8.1,"Un garçon de 13 ans accusé de meurtre. Chaque épisode est un seul plan."],
+["Mercredi",2022,"Alfred Gough, Miles Millar","com sf","netflix",8.0,"Mercredi Addams enquête sur des meurtres à l'académie Nevermore."],
+["The Last Dance",2020,"Jason Hehir","doc","netflix",9.0,"Michael Jordan et la dernière saison des Chicago Bulls."],
+["The Boys",2019,"Eric Kripke","act com","prime",8.6,"Des super-héros corrompus et la bande de types qui veut les faire tomber."],
+["Fallout",2024,"Jonathan Nolan, Lisa Joy","sf","prime",8.3,"Lucy sort de son abri antiatomique. Dehors, un désert radioactif."],
+["Fleabag",2016,"Phoebe Waller-Bridge","com","prime",8.7,"Une Londonienne cash, drôle et cabossée parle droit à la caméra."],
+["Mme Maisel, femme fabuleuse",2017,"Amy Sherman-Palladino","com","prime",8.7,"New York, 1958 : une femme au foyer se lance dans le stand-up."],
+["Invincible",2021,"Robert Kirkman","ani act","prime",8.7,"Le fils du plus grand super-héros de la Terre découvre ses pouvoirs."],
+["Mr. Robot",2015,"Sam Esmail","pol dra","prime",8.5,"Un hacker solitaire est recruté pour faire tomber une multinationale."],
+["Reacher",2022,"Nick Santora","act","prime",8.0,"Un ex-militaire de deux mètres règle les problèmes à sa façon."],
+["The Bear",2022,"Christopher Storer","com dra","disney",8.5,"Un chef étoilé reprend la sandwicherie familiale de Chicago."],
+["Andor",2022,"Tony Gilroy","sf","disney",8.6,"Comment un voleur devient rebelle, cinq ans avant Rogue One."],
+["Shōgun",2024,"Rachel Kondo, Justin Marks","his","disney",8.6,"Un navigateur anglais échoue au Japon en pleine guerre de clans."],
+["Fargo",2014,"Noah Hawley","pol com","disney",8.9,"Des crimes absurdes dans la neige du Midwest. Une histoire par saison."],
+["Atlanta",2016,"Donald Glover","com","disney",8.6,"Earn devient le manager de son cousin rappeur à Atlanta."],
+["What We Do in the Shadows",2019,"Jemaine Clement","com hor","disney",8.6,"Des vampires colocataires à Staten Island, filmés comme un documentaire."],
+["The Mandalorian",2019,"Jon Favreau","sf act","disney",8.6,"Un chasseur de primes taiseux protège un bébé très recherché."],
+["Les Simpson",1989,"Matt Groening","ani com","disney",8.7,"La famille la plus célèbre de Springfield."],
+["Only Murders in the Building",2021,"Steve Martin, John Hoffman","com pol","disney",8.1,"Trois voisins fans de podcasts criminels enquêtent dans leur immeuble."],
+["Le Bureau des légendes",2015,"Éric Rochant","pol","canal",8.6,"Le quotidien des agents clandestins de la DGSE."],
+["Baron Noir",2016,"Éric Benzekri, Jean-Baptiste Delafon","dra","canal",8.2,"Un député du Nord prêt à tout pour sa revanche politique."],
+["Engrenages",2005,"Alexandra Clert, Guy-Patrick Sainderichin","pol","canal",8.3,"La police judiciaire de Paris, ses juges et ses avocats, sans fard."],
+["Twin Peaks",1990,"David Lynch, Mark Frost","pol sf","canal",8.8,"Qui a tué Laura Palmer ? Un agent du FBI enquête dans une ville étrange."],
+["Dexter",2006,"James Manos Jr.","pol","canal",8.6,"Expert de la police le jour, tueur de tueurs la nuit."],
+["Les Soprano",1999,"David Chase","pol dra","hbo",9.2,"Un parrain du New Jersey consulte une psy."],
+["The Wire",2002,"David Simon","pol","hbo",9.3,"Baltimore vue par les flics, les dealers, les dockers et les politiques."],
+["Chernobyl",2019,"Craig Mazin","his","hbo",9.3,"La catastrophe nucléaire de 1986 et les mensonges qui ont suivi."],
+["Band of Brothers",2001,"Tom Hanks, Steven Spielberg","his","hbo",9.4,"Une compagnie de parachutistes, du Débarquement à la fin de la guerre."],
+["Game of Thrones",2011,"David Benioff, D. B. Weiss","sf","hbo",9.2,"Sept royaumes, un trône et l'hiver qui vient."],
+["Succession",2018,"Jesse Armstrong","dra com","hbo",8.9,"Les enfants d'un magnat des médias se déchirent pour l'héritage."],
+["True Detective",2014,"Nic Pizzolatto","pol","hbo",8.9,"Deux inspecteurs de Louisiane et un meurtre rituel qui les poursuit."],
+["The Last of Us",2023,"Craig Mazin, Neil Druckmann","sf hor","hbo",8.6,"Joel escorte Ellie à travers une Amérique ravagée par un champignon."],
+["Six Feet Under",2001,"Alan Ball","dra com","hbo",8.7,"Une famille de croque-morts de Los Angeles."],
+["The Pitt",2025,"R. Scott Gemmill","dra","hbo",8.8,"Une garde de 15 heures aux urgences de Pittsburgh, une heure par épisode."],
+["The Penguin",2024,"Lauren LeFranc","pol","hbo",8.6,"Oz Cobb prend le contrôle de la pègre de Gotham."],
+["Barry",2018,"Bill Hader, Alec Berg","com pol","hbo",8.4,"Un tueur à gages se découvre une passion pour le théâtre."],
+["Larry et son nombril",2000,"Larry David","com","hbo",8.8,"Larry David, ses principes absurdes et ses disputes quotidiennes."],
+["Friends",1994,"David Crane, Marta Kauffman","com rom","hbo",8.9,"Six amis à New York, un canapé orange et beaucoup de café."],
+["The White Lotus",2021,"Mike White","com dra","hbo",8.0,"Des touristes riches dans un palace de luxe. Une semaine plus tard, un cadavre."],
+["Severance",2022,"Dan Erickson","sf pol","apple",8.7,"Des employés dont les souvenirs du travail et de la vie privée sont séparés."],
+["Ted Lasso",2020,"Jason Sudeikis, Bill Lawrence","com","apple",8.8,"Un coach de foot américain entraîne une équipe anglaise. Il n'y connaît rien."],
+["Slow Horses",2022,"Will Smith","pol","apple",8.2,"Les espions ratés du MI5, menés par un Gary Oldman crasseux."],
+["For All Mankind",2019,"Ronald D. Moore","sf his","apple",8.0,"Et si les Soviétiques avaient marché sur la Lune les premiers ?"],
+["Silo",2023,"Graham Yost","sf","apple",8.1,"Dix mille personnes vivent sous terre. Personne ne sait pourquoi."],
+["Shrinking",2023,"Bill Lawrence, Jason Segel, Brett Goldstein","com dra","apple",8.2,"Un psy en deuil décide de dire à ses patients ce qu'il pense vraiment."],
+["The Morning Show",2019,"Kerry Ehrin","dra","apple",8.2,"Les coulisses d'une matinale télé après un scandale."],
+];
+
+// Les identifiants dépendent du titre et de l'année : on peut ajouter des titres sans casser les votes déjà faits.
+const slug = (t, y) => t.normalize("NFD").replace(/[^\w]/g, "").toLowerCase().slice(0, 24) + y;
+const CATALOG = [
+  ...FILMS.map(([t, y, dir, g, d, p, r, pitch]) => ({ k: "f", t, y, dir, g: g.split(" "), d, p, r, pitch })),
+  ...SERIES.map(([t, y, dir, g, p, r, pitch]) => ({ k: "s", t, y, dir, g: g.split(" "), p, r, pitch })),
+].map((f, i) => ({ ...f, id: f.k + slug(f.t, f.y), h1: (i * 47 + 10) % 360, h2: (i * 47 + 200) % 360,
+  people: f.dir.split(/, /),
+  dec: f.y < 1970 ? "old" : String(Math.floor(f.y / 10) * 10),
+  // Niveau : 2 = culte, 1 = excellent, 0 = très bien noté
+  tier: f.k === "f" ? (f.r >= 4.3 ? 2 : f.r >= 4.1 ? 1 : 0) : (f.r >= 8.9 ? 2 : f.r >= 8.6 ? 1 : 0) }));
+const BY_ID = Object.fromEntries(CATALOG.map((f) => [f.id, f]));
+// Affiches : images tirées des articles Wikipédia (en anglais), servies avec la page dans posters/<id>.jpg
+const POSTERS = new Set(/*POSTERS*/["f2001lodysseedelespace1968", "faboutdesouffle1960", "fakira1988", "falienlehuitiemepassager1979", "faliensleretour1986", "fanatomiedunechute2023", "fapocalypsenow1979", "farretemoisitupeux2002", "favengersendgame2019", "fbarrylyndon1975", "fbladerunner1982", "fbladerunner20492017", "fcasablanca1942", "fcasino1995", "fchantonssouslapluie1952", "fchinatown1974", "fcleode5a71962", "fcoco2017", "fdjangounchained2012", "fdocteurfolamour1964", "fdouzehommesencolere1957", "fdune2021", "fdunedeuxiemepartie2024", "fetlextraterrestre1982", "feverythingeverywherealla2022", "ff12025", "ffantasticmrfox2009", "ffargo1996", "ffenetresurcour1954", "ffightclub1999", "fflow2024", "fforrestgump1994", "ffullmetaljacket1987", "fgetout2017", "fgladiator2000", "fgonegirl2014", "fheat1995", "fheredite2018", "fhotfuzz2007", "filetaitunefoisahollywood2019", "filetaitunefoisdanslouest1968", "filfautsauverlesoldatryan1998", "fincendies2010", "finception2010", "finglouriousbasterds2009", "finterstellar2014", "fintouchables2011", "fjohnwickchapitre42023", "fjurassicpark1993", "fkillbillvolume12003", "fkillersoftheflowermoon2023", "flagrandeillusion1937", "flahaine1995", "flahaut2009", "flaligneverte1999", "flalistedeschindler1993", "flamortauxtrousses1959", "flebonlabruteetletruand1966", "flecercledespoetesdisparu1989", "flechateauambulant2004", "flecomtedemontecristo2024", "fledinerdecons1998", "flefabuleuxdestindameliep2001", "flegarconetleheron2023", "fleloupdewallstreet2013", "flemagiciendoz1939", "flemans662019", "flempirecontreattaque1980", "fleon1994", "fleparrain1972", "fleparrain2epartie1974", "flepianiste2002", "fleprestige2006", "flerobotsauvage2024", "fleroilion1994", "fles400coups1959", "flesaffranchis1990", "flesalairedelapeur1953", "flesamourai1967", "flesaventuriersdelarchepe1981", "flesdentsdelamer1975", "flesdiaboliques1955", "fleseigneurdesanneauxlaco2001", "fleseigneurdesanneauxlere2003", "fleseigneurdesanneauxlesd2002", "flesevades1994", "flesilencedesagneaux1991", "flesindestructibles2004", "flesinfiltres2006", "flesparapluiesdecherbourg1964", "flestempsmodernes1936", "fletombeaudeslucioles1988", "flevoyagedechihiro2001", "flexorciste1973", "flogan2017", "fmadmaxfuryroad2015", "fmatrix1999", "fmemento2000", "fmemoriesofmurder2003", "fmissionimpossiblefallout2018", "fmontypythonsacregraal1975", "fmonvoisintotoro1988", "fmoonrisekingdom2012", "fnocountryforoldmen2007", "fnosferatu2024", "foppenheimer2023", "forangemecanique1971", "foss117lecaireniddespions2006", "fpaddington22017", "fparasite2019", "fperfectblue1997", "fpersepolis2007", "fphantomthread2017", "fpiegedecristal1988", "fpinocchioparguillermodel2022", "fplaytime1967", "fportraitdelajeunefilleen2019", "fpremiercontact2016", "fprincessbride1987", "fprincessemononoke1997", "fprisoners2013", "fpsychose1960", "fpulpfiction1994", "fquandharryrencontresally1989", "fragingbull1980", "fratatouille2007", "freservoirdogs1992", "fretourverslefutur1985", "frosemarysbaby1968", "fseven1995", "fshaunofthedead2004", "fshining1980", "fsinners2025", "fspidermanacrossthespider2023", "fspidermannewgeneration2018", "fstarwarsunnouvelespoir1977", "fsueursfroides1958", "ftaxidriver1976", "fterminator21991", "fthebiglebowski1998", "fthedarkknight2008", "fthegrandbudapesthotel2014", "fthelighthouse2019", "ftherewillbeblood2007", "fthesocialnetwork2010", "fthesubstance2024", "fthething1982", "fthetrumanshow1998", "ftitanic1997", "ftopgunmaverick2022", "ftoystory1995", "funebatailleapreslautre2025", "funjoursansfin1993", "funprophete2009", "fviceversa2015", "fwalle2008", "fwolfwalkers2020", "fyourname2016", "fzodiac2007"]);
+const art = (f, eager) => POSTERS.has(f.id) ? `<img class="art" src="posters/${f.id}.jpg" alt="" ${eager ? "" : 'loading="lazy"'} draggable="false" onerror="this.remove()">` : "";
+
+// ---------- Petits outils ----------
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const num = (x) => String(x).replace(".", ",");
+const score = (f) => f.k === "f" ? `★ ${num(f.r.toFixed(1))} Letterboxd` : `IMDb ${num(f.r.toFixed(1))}`;
+const facts = (f) => `${f.k === "f" ? "Film" : "Série"} · ${f.y} · ${f.g.map((g) => GENRES[g]).join(", ")}${f.k === "f" ? ` · ${Math.floor(f.d / 60)} h ${String(f.d % 60).padStart(2, "0")}` : ""}`;
+const byWho = (f) => (f.k === "f" ? "Réalisé par " : "Créée par ") + f.dir;
+function seeded(code) { let h = 0; for (const c of code) h = (h * 31 + c.charCodeAt(0)) >>> 0; return () => ((h = (h * 1664525 + 1013904223) >>> 0) / 4294967296); }
+function newCode() { const a = "ABCDEFGHJKLMNPQRSTUVWXYZ"; return Array.from({ length: 4 }, () => a[Math.floor(Math.random() * a.length)]).join(""); }
+const ICON = {
+  no: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  yes: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.5 1.1 4.2 2.3h2c.7-1.2 2.1-2.3 4.2-2.3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>',
+};
+
+// ---------- Filtres ----------
+// Listes vides = « tout » ; director vide = tout le monde.
+const defaultFilters = () => ({ type: "both", platforms: Object.keys(PLATFORMS), genres: [], decades: [], director: "", tier: 0 });
+const withDefaults = (r) => ({ ...defaultFilters(), ...r });
+function matchesFilters(f, x, skip) {
+  return (skip === "type" || x.type === "both" || f.k === x.type)
+    && (skip === "platforms" || x.platforms.includes(f.p))
+    && (skip === "genres" || !x.genres.length || f.g.some((g) => x.genres.includes(g)))
+    && (skip === "decades" || !x.decades.length || x.decades.includes(f.dec))
+    && (skip === "director" || !x.director || f.people.includes(x.director))
+    && (skip === "tier" || f.tier >= x.tier);
+}
+const filtered = (x) => CATALOG.filter((f) => matchesFilters(f, x));
+// Combien de titres on aurait en ajoutant cette valeur, tous les autres filtres restant les mêmes.
+const countFor = (x, key, test) => CATALOG.filter((f) => matchesFilters(f, x, key) && test(f)).length;
+function summary(x) {
+  const parts = [x.type === "f" ? "Films" : x.type === "s" ? "Séries" : "Films et séries"];
+  if (x.platforms.length < Object.keys(PLATFORMS).length) parts.push(x.platforms.map((k) => PLATFORMS[k].name).join(", "));
+  if (x.genres.length) parts.push(x.genres.map((g) => GENRES[g]).join(", "));
+  if (x.decades.length) parts.push(DECADES.filter(([k]) => x.decades.includes(k)).map(([, l]) => l).join(", "));
+  if (x.director) parts.push(x.director);
+  if (x.tier) parts.push(TIERS[x.tier][1]);
+  return parts.join(" · ");
+}
+
+// ---------- État ----------
+const S = {
+  db: null, user: null, me: null, solo: false, ready: false,
+  screen: "home", tab: "swipe", err: "", showList: false,
+  draft: defaultFilters(),
+  code: null, room: null, deck: [],
+  votes: {},          // id utilisateur -> { idTitre: 1 | 0 } pour le salon courant
+  myVotes: {},        // mes votes, tous salons : { CODE: { idTitre: 1 | 0 } }
+  profiles: {}, knownMatches: null, overlay: null, unsubVotes: null,
+};
+
+// ---------- Rendu ----------
+function render() {
+  const app = $("#app");
+  const head = `<header class="top"><div class="brand">Ciné<b>Match</b></div>${S.code ? `<button class="ticket" id="leave" aria-label="Quitter le salon ${S.code}">${S.code} ✕</button>` : ""}</header>`;
+  if (!S.ready) { app.innerHTML = head + `<p class="lead">Ouverture de la salle…</p>`; return; }
+  if (S.screen === "home") app.innerHTML = head + homeView();
+  else if (S.screen === "create") app.innerHTML = head + createView();
+  else app.innerHTML = head + roomView();
+  bind();
+}
+
+function homeView() {
+  return `<section class="stack-v">
+    <h1>Ce soir, on regarde quoi&nbsp;?</h1>
+    <p class="lead">Chacun swipe de son côté. Dès que vous aimez le même titre, c'est un match. ${CATALOG.length} films et séries, tous très bien notés.</p>
+  </section>
+  <section class="stack-v">
+    <button class="btn" id="go-create">Créer un salon</button>
+    ${S.solo ? `<p class="note">Mode solo : le partage avec des amis n'est pas disponible ici (connectez-vous à claude.ai pour jouer à plusieurs).</p>` : `
+    <span class="label">Ou rejoindre des amis</span>
+    <input class="code" id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" inputmode="text">
+    <button class="btn ghost" id="go-join">Rejoindre</button>
+    <p class="err" id="err">${esc(S.err)}</p>`}
+  </section>`;
+}
+
+function createView() {
+  const x = S.draft;
+  const norm = (f) => f.k === "f" ? f.r / 5 : f.r / 10;
+  const list = filtered(x).sort((a, b) => norm(b) - norm(a));
+  const n = list.length;
+  const seg = (attr, opts, cur) => opts.map(([v, l]) => `<button data-${attr}="${v}" aria-pressed="${String(cur) === v}">${l}</button>`).join("");
+  const chips = Object.entries(PLATFORMS).map(([k, p]) =>
+    `<button class="chip" style="--c:${p.c}" data-plat="${k}" aria-pressed="${x.platforms.includes(k)}"><span class="dot"></span>${p.name}<span class="n">${countFor(x, "platforms", (f) => f.p === k)}</span></button>`).join("");
+  const tags = (attr, entries, sel, key, test) => entries.map(([k, l]) => {
+    const c = countFor(x, key, (f) => test(f, k));
+    return `<button class="tag" data-${attr}="${k}" aria-pressed="${sel.includes(k)}" ${c || sel.includes(k) ? "" : "disabled"}>${l}<span class="n">${c}</span></button>`;
+  }).join("");
+  // Liste des réalisateurs et créateurs, avec le nombre de titres qui passent les autres filtres.
+  const people = {};
+  for (const f of CATALOG) if (matchesFilters(f, x, "director")) for (const p of f.people) people[p] = (people[p] || 0) + 1;
+  if (x.director && !people[x.director]) people[x.director] = 0;
+  const opts = Object.entries(people).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fr"))
+    .map(([p, c]) => `<option value="${esc(p)}" ${p === x.director ? "selected" : ""}>${esc(p)} (${c})</option>`).join("");
+  const reset = (key) => `<button class="link" data-reset="${key}">Tout</button>`;
+
+  return `<section class="stack-v"><h2>Bibliothèque</h2><p class="lead">Réglez les filtres : le salon ne proposera que les titres qui y correspondent.</p></section>
+  <section class="stack-v"><span class="label">Type</span><div class="seg" role="group" aria-label="Type">${seg("type", [["f", "Films"], ["s", "Séries"], ["both", "Les deux"]], x.type)}</div></section>
+  <section class="stack-v"><span class="label">Plateformes</span><div class="chips">${chips}</div></section>
+  <section class="stack-v"><div class="sec-head"><span class="label">Genres</span>${x.genres.length ? reset("genres") : ""}</div>
+    <div class="tags">${tags("genre", Object.entries(GENRES), x.genres, "genres", (f, k) => f.g.includes(k))}</div></section>
+  <section class="stack-v"><div class="sec-head"><span class="label">Époque</span>${x.decades.length ? reset("decades") : ""}</div>
+    <div class="tags">${tags("dec", DECADES, x.decades, "decades", (f, k) => f.dec === k)}</div></section>
+  <section class="stack-v"><label class="label" for="director">Réalisation / création</label>
+    <select class="pick" id="director"><option value="">Tout le monde</option>${opts}</select></section>
+  <section class="stack-v"><span class="label">Notes</span><div class="seg" role="group" aria-label="Notes">${seg("tier", TIERS, x.tier)}</div>
+    <p class="note">Tous les titres sont très bien notés (films : Letterboxd, au moins 3,7 sur 5 ; séries : IMDb, au moins 8 sur 10). « Excellents » : 4,1 ou 8,6 et plus. « Cultes » : 4,3 ou 8,9 et plus. Notes et plateformes en France approximatives : elles changent avec le temps. Affiches : Wikipédia.</p></section>
+  <section class="stack-v"><button class="btn ghost" id="toggle-list" ${n ? "" : "disabled"}>${S.showList ? "Masquer" : "Voir"} les ${n} titres</button>
+    ${S.showList ? `<div class="list">${list.map(itemHTML).join("")}</div>` : ""}</section>
+  <div class="row sticky"><button class="btn ghost" id="back">Retour</button><button class="btn" id="create" ${n ? "" : "disabled"}>${n ? `Lancer (${n} titres)` : "Aucun titre"}</button></div>`;
+}
+
+function itemHTML(f, extra = "") {
+  return `<div class="item"><div class="thumb" style="--h1:${f.h1};--h2:${f.h2}">${art(f)}</div>
+    <div><div class="t">${esc(f.t)}</div><div class="s">${facts(f)}</div>
+    <div class="s">${esc(byWho(f))} · ${PLATFORMS[f.p].name} · <span class="score">${score(f)}</span></div>${extra}</div></div>`;
+}
+
+function participants() {
+  const ids = Object.keys(S.votes);
+  if (S.me && !ids.includes(S.me)) ids.unshift(S.me);
+  return ids;
+}
+function matches() {
+  const ids = participants();
+  const out = [];
+  for (const f of S.deck) {
+    const likers = ids.filter((id) => S.votes[id]?.[f.id] === 1);
+    if (likers.length >= 2 || (S.solo && likers.length)) out.push({ f, likers, perfect: likers.length === ids.length });
+  }
+  return out.sort((a, b) => b.likers.length - a.likers.length);
+}
+
+function roomView() {
+  const ids = participants();
+  const mine = S.votes[S.me] || {};
+  const left = S.deck.filter((f) => !(f.id in mine));
+  const m = matches();
+  const names = ids.map((id) => id === S.me ? "vous" : (S.profiles[id]?.name || "un ami"));
+  const avatars = ids.slice(0, 6).map((id) => S.profiles[id]?.avatarUrl ? `<img src="${esc(S.profiles[id].avatarUrl)}" alt="">` : "").join("");
+  const bar = `<div class="roombar"><div class="people">${avatars}</div><div class="who">${ids.length} dans la salle : ${esc(names.join(", "))}</div></div>
+  <div class="summary">${esc(summary(S.room))}</div>
+  <div class="tabs" role="tablist"><button role="tab" data-tab="swipe" aria-selected="${S.tab === "swipe"}">À trier · ${left.length}</button>
+  <button role="tab" data-tab="matches" aria-selected="${S.tab === "matches"}">Matchs <span class="badge">${m.length}</span></button></div>`;
+
+  let body;
+  if (S.tab === "matches") {
+    body = m.length ? `<div class="list">${m.map(({ f, likers, perfect }) => itemHTML(f,
+      `<div class="s">${perfect ? `<span class="perfect">Tout le monde dit oui</span>` : `${likers.length} sur ${ids.length} disent oui`}</div>`)).join("")}</div>`
+      : `<div class="empty"><div><h2>Pas encore de match</h2><p class="lead">Un match apparaît quand au moins deux personnes aiment le même titre.</p></div></div>`;
+  } else if (!left.length) {
+    body = `<div class="empty"><div><h2>Vous avez tout vu&nbsp;!</h2><p class="lead">${m.length ? `${m.length} match${m.length > 1 ? "s" : ""} pour l'instant.` : "Attendez que vos amis swipent."}</p>
+      <button class="btn" data-tab="matches">Voir les matchs</button><button class="btn ghost" id="redo">Recommencer mes choix</button></div></div>`;
+  } else {
+    const card = (f, cls) => `<article class="card ${cls}" data-id="${f.id}" aria-label="${esc(f.t)}">
+      <div class="poster ${POSTERS.has(f.id) ? "has-art" : ""}" style="--h1:${f.h1};--h2:${f.h2}">${art(f, true)}
+        <span class="stamp yes">Oui</span><span class="stamp no">Non</span>
+        <div class="meta"><span class="pill score">${score(f)}</span><span class="pill plat" style="--c:${PLATFORMS[f.p].c}">${PLATFORMS[f.p].name}</span></div>
+        <div class="ttl">${esc(f.t)}</div>
+      </div>
+      <div class="info">${POSTERS.has(f.id) ? `<div class="name">${esc(f.t)}</div>` : ""}<div class="facts">${facts(f)}</div><div class="facts">${esc(byWho(f))}</div><p>${esc(f.pitch)}</p></div></article>`;
+    body = `<div class="deck">${left[1] ? card(left[1], "behind") : ""}${card(left[0], "top")}</div>
+      <div class="actions"><button class="round no" id="nope" aria-label="Non">${ICON.no}</button><button class="round yes" id="like" aria-label="Oui">${ICON.yes}</button></div>`;
+  }
+  const share = S.solo ? "" : `<p class="note">Invitez vos amis : ils ouvrent cette page, touchent « Rejoindre » et tapent <b>${S.code}</b>.</p>`;
+  const ov = S.overlay ? `<div class="overlay" id="overlay" role="dialog" aria-label="C'est un match"><div class="box">
+      <div class="big">C'est un match&nbsp;!</div><div class="thumb" style="--h1:${S.overlay.h1};--h2:${S.overlay.h2}">${art(S.overlay, true)}</div>
+      <h2>${esc(S.overlay.t)}</h2><p class="lead">${facts(S.overlay)} · sur ${PLATFORMS[S.overlay.p].name}</p>
+      <button class="btn" id="close-ov">Continuer</button></div></div>` : "";
+  return bar + body + share + ov;
+}
+
+// ---------- Interactions ----------
+const toggle = (arr, v) => arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+function bind() {
+  const on = (id, fn) => { const el = $("#" + id); if (el) el.onclick = fn; };
+  const all = (sel, fn) => document.querySelectorAll(sel).forEach((b) => b.onclick = () => { fn(b); render(); });
+  on("go-create", () => { S.screen = "create"; render(); });
+  on("back", () => { S.screen = "home"; render(); });
+  on("leave", () => { leaveRoom(); S.screen = "home"; render(); });
+  on("go-join", () => joinRoom(($("#join-code")?.value || "").trim().toUpperCase()));
+  const jc = $("#join-code"); if (jc) jc.onkeydown = (e) => { if (e.key === "Enter") $("#go-join").click(); };
+  on("create", createRoom);
+  on("toggle-list", () => { S.showList = !S.showList; render(); });
+  on("like", () => swipe(1));
+  on("nope", () => swipe(0));
+  on("redo", () => { S.votes[S.me] = {}; S.myVotes[S.code] = {}; saveVotes(); render(); });
+  on("close-ov", () => { S.overlay = null; render(); });
+  const d = S.draft;
+  all("[data-type]", (b) => d.type = b.dataset.type);
+  all("[data-tier]", (b) => d.tier = Number(b.dataset.tier));
+  all("[data-plat]", (b) => d.platforms = toggle(d.platforms, b.dataset.plat));
+  all("[data-genre]", (b) => d.genres = toggle(d.genres, b.dataset.genre));
+  all("[data-dec]", (b) => d.decades = toggle(d.decades, b.dataset.dec));
+  all("[data-reset]", (b) => d[b.dataset.reset] = []);
+  all("[data-tab]", (b) => S.tab = b.dataset.tab);
+  const sel = $("#director"); if (sel) sel.onchange = () => { d.director = sel.value; render(); };
+  const top = $(".card.top"); if (top) drag(top);
+}
+
+function drag(el) {
+  let x0 = 0, y0 = 0, dx = 0, dy = 0, active = false;
+  const yes = $(".stamp.yes", el), no = $(".stamp.no", el);
+  el.addEventListener("pointerdown", (e) => { active = true; x0 = e.clientX; y0 = e.clientY; el.setPointerCapture(e.pointerId); el.style.transition = "none"; });
+  el.addEventListener("pointermove", (e) => {
+    if (!active) return;
+    dx = e.clientX - x0; dy = e.clientY - y0;
+    el.style.transform = `translate(${dx}px, ${dy * .3}px) rotate(${dx / 18}deg)`;
+    yes.style.opacity = Math.max(0, Math.min(1, dx / 90)); no.style.opacity = Math.max(0, Math.min(1, -dx / 90));
+  });
+  const end = () => {
+    if (!active) return; active = false;
+    if (Math.abs(dx) > 100) swipe(dx > 0 ? 1 : 0, dx);
+    else { el.style.transition = "transform .25s"; el.style.transform = ""; yes.style.opacity = no.style.opacity = 0; }
+    dx = dy = 0;
+  };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+}
+
+function swipe(v, dx) {
+  const el = $(".card.top"); if (!el || el.dataset.gone) return;
+  el.dataset.gone = "1";
+  const id = el.dataset.id;
+  const dir = v ? 1 : -1;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.style.transition = reduce ? "opacity .15s" : "transform .3s ease-in, opacity .3s";
+  el.style.transform = reduce ? "" : `translate(${dir * 600}px, ${dx ? 0 : -40}px) rotate(${dir * 25}deg)`;
+  el.style.opacity = "0";
+  $(v ? ".stamp.yes" : ".stamp.no", el).style.opacity = 1;
+  setTimeout(() => {
+    S.votes[S.me] = { ...(S.votes[S.me] || {}), [id]: v };
+    S.myVotes[S.code] = S.votes[S.me];
+    saveVotes();
+    checkNewMatches();
+    render();
+  }, reduce ? 150 : 280);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (S.screen !== "room" || S.tab !== "swipe" || S.overlay || e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") swipe(1);
+  if (e.key === "ArrowLeft") swipe(0);
+});
+
+// Montre l'écran « match » quand un titre que j'aime vient d'atteindre 2 oui ou plus.
+function checkNewMatches() {
+  const now = new Set(matches().map((m) => m.f.id));
+  if (S.knownMatches) {
+    for (const id of now) if (!S.knownMatches.has(id) && S.votes[S.me]?.[id] === 1 && !S.solo) { S.overlay = BY_ID[id]; break; }
+  }
+  S.knownMatches = now;
+}
+
+// ---------- Salons et données partagées ----------
+function enterRoom(code, raw) {
+  const room = withDefaults(raw);
+  S.code = code; S.room = room; S.screen = "room"; S.tab = "swipe"; S.knownMatches = null; S.overlay = null;
+  // Même ordre pour tout le salon (tiré du code), pour que les matchs arrivent vite.
+  const rnd = seeded(code);
+  S.deck = filtered(room).map((f) => [rnd(), f]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+  S.votes = { [S.me]: S.myVotes[code] || {} };
+  store.set("cinematch:last", code);
+  if (S.solo) { checkNewMatches(); render(); return; }
+  if (!S.myVotes[code]) { S.myVotes[code] = {}; saveVotes(); }
+  S.unsubVotes = S.db.collection("votes").onSnapshot(async (snap) => {
+    const next = {};
+    for (const d of snap.docs) { const r = d.data()?.rooms?.[code]; if (r) next[d.id] = r; }
+    next[S.me] = S.votes[S.me] || {};
+    S.votes = next;
+    const unknown = Object.keys(next).filter((id) => !S.profiles[id]);
+    if (unknown.length && S.user) { try { Object.assign(S.profiles, await S.user.profiles(unknown)); } catch {} }
+    checkNewMatches();
+    if (!$(".card.top")?.dataset.gone) render();
+  }, () => {});
+  render();
+}
+
+function leaveRoom() {
+  S.unsubVotes?.(); S.unsubVotes = null;
+  S.code = null; S.room = null; S.overlay = null;
+  store.set("cinematch:last", null);
+}
+
+async function createRoom() {
+  const x = S.draft;
+  const room = { type: x.type, platforms: x.platforms.slice(), genres: x.genres.slice(), decades: x.decades.slice(),
+    director: x.director, tier: x.tier, by: S.me || "solo", at: Date.now() };
+  if (S.solo) { store.set("cinematch:solo-room", room); S.myVotes.SOLO = {}; return enterRoom("SOLO", room); }
+  let code = newCode();
+  try {
+    for (let i = 0; i < 5 && (await S.db.doc("rooms/" + code).get()).exists; i++) code = newCode();
+    await S.db.doc("rooms/" + code).set(room);
+    enterRoom(code, room);
+  } catch (e) { S.screen = "home"; S.err = "Impossible de créer le salon. Demandez à la personne qui a partagé la page un accès « Contributeur »."; render(); }
+}
+
+async function joinRoom(code) {
+  if (!/^[A-Z]{4}$/.test(code)) { S.err = "Le code fait 4 lettres."; return render(); }
+  try {
+    const d = await S.db.doc("rooms/" + code).get();
+    if (!d.exists) { S.err = `Aucun salon ${code}. Vérifiez le code avec vos amis.`; return render(); }
+    S.err = ""; enterRoom(code, d.data());
+  } catch { S.err = "Connexion impossible pour le moment. Réessayez."; render(); }
+}
+
+// Une écriture à la fois : on garde toujours la dernière version à envoyer.
+let saving = false, pending = false;
+async function saveVotes() {
+  if (S.solo) { store.set("cinematch:solo-votes", S.myVotes); return; }
+  if (saving) { pending = true; return; }
+  saving = true;
+  try { await S.db.doc("votes/" + S.me).set({ rooms: S.myVotes }); } catch {}
+  saving = false;
+  if (pending) { pending = false; saveVotes(); }
+}
+
+// ---------- Démarrage ----------
+(async function start() {
+  render();
+  const hasClaude = typeof window.claude?.use === "function";
+  const [db, user] = hasClaude ? await Promise.all([window.claude.use("db"), window.claude.use("user")]) : [null, null];
+  S.db = db; S.user = user;
+  S.me = user ? await user.id() : null;
+  if (!db || !S.me) {
+    S.solo = true; S.me = "moi";
+    S.myVotes = store.get("cinematch:solo-votes") || {};
+  } else {
+    try { Object.assign(S.profiles, await user.profiles([S.me])); } catch {}
+    try { const mine = await db.doc("votes/" + S.me).get(); S.myVotes = mine.data()?.rooms || {}; } catch {}
+  }
+  S.ready = true;
+  const last = store.get("cinematch:last");
+  if (last === "SOLO" && S.solo && store.get("cinematch:solo-room")) enterRoom("SOLO", store.get("cinematch:solo-room"));
+  else if (last && !S.solo) await joinRoom(last).then(() => { if (S.screen !== "room") { S.err = ""; render(); } });
+  else render();
+})();
+</script>
+
+</body>
+</html>
