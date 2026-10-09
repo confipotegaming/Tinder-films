@@ -14,7 +14,7 @@ Un « Tinder des films » pour choisir quoi regarder entre amis, pensé pour le 
 | Fichier | Rôle |
 | --- | --- |
 | `index.html` | Toute l'application : catalogue, filtres, salons, swipe |
-| `posters/` | Les affiches (`<id>.jpg`, 360 px de large) : 159 titres sur 274 pour l'instant |
+| `posters/` | Les affiches (`<id>.jpg`, 360 px de large) : 249 titres sur 274 (les 25 autres n'ont pas d'image sur Wikipédia) |
 | `outils/` | Le script qui récupère les affiches sur Wikipédia, et la correspondance des titres en anglais |
 
 ## Le catalogue
