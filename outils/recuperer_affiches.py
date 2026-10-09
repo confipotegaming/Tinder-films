@@ -20,7 +20,7 @@ for f, t in zip(cat, en):
     out = f"posters/{f['id']}.jpg"
     if os.path.exists(out): continue
     if f["id"] not in urls:
-        r = get("https://en.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(t.replace(" ", "_"), safe=""))
+        r = get("https://en.m.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(t.replace(" ", "_"), safe=""))
         urls[f["id"]] = (r.json().get("originalimage") or r.json().get("thumbnail") or {}).get("source") if r else None
         json.dump(urls, open("outils/liens_affiches.json", "w"), indent=0)
         time.sleep(4)
