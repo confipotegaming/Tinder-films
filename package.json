@@ -4,7 +4,7 @@
   "private": true,
   "description": "Tinder des films : choisir quoi regarder entre amis",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": { "node": ">=20" },
   "scripts": {
     "build": "echo \"Rien à construire : la page est prête.\"",
     "start": "node server.js"

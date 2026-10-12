@@ -53,6 +53,7 @@ h2 { font-size: 22px; font-weight: 800; letter-spacing: .03em; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .row > * { flex: 1 1 auto; }
 
+input.code.name { letter-spacing: .04em; text-transform: none; font-size: 24px; }
 input.code { width: 100%; background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; color: var(--fg);
   font: 800 28px/1 var(--display); letter-spacing: .3em; text-transform: uppercase; text-align: center; }
 
@@ -520,7 +521,8 @@ function summary(x) {
 
 // ---------- État ----------
 const S = {
-  db: null, user: null, me: null, solo: false, ready: false,
+  B: null,           // où sont gardés les salons : claude.ai, le serveur Render, ou rien (solo)
+  me: null, name: "", solo: false, ready: false,
   screen: "home", tab: "swipe", err: "", showList: false,
   draft: defaultFilters(),
   code: null, room: null, deck: [],
@@ -546,10 +548,12 @@ function homeView() {
     <p class="lead">Chacun swipe de son côté. Dès que vous aimez le même titre, c'est un match. ${CATALOG.length} films et séries, tous très bien notés.</p>
   </section>
   <section class="stack-v">
+    ${S.B?.kind === "server" ? `<label class="label" for="my-name">Ton prénom</label>
+    <input class="code name" id="my-name" maxlength="24" placeholder="Prénom" autocomplete="given-name" value="${esc(S.name)}">` : ""}
     <button class="btn" id="go-create">Créer un salon</button>
-    ${S.solo ? `<p class="note">Mode solo : le partage avec des amis n'est pas disponible ici (connectez-vous à claude.ai pour jouer à plusieurs).</p>` : `
+    ${S.solo ? `<p class="note">Mode solo : le partage avec des amis n'est pas disponible ici.</p><p class="err" id="err">${esc(S.err)}</p>` : `
     <span class="label">Ou rejoindre des amis</span>
-    <input class="code" id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters" inputmode="text">
+    <input class="code" id="join-code" maxlength="4" placeholder="CODE" value="${esc(S.pendingCode || "")}" autocomplete="off" autocapitalize="characters" inputmode="text">
     <button class="btn ghost" id="go-join">Rejoindre</button>
     <p class="err" id="err">${esc(S.err)}</p>`}
   </section>`;
@@ -643,7 +647,11 @@ function roomView() {
     body = `<div class="deck">${left[1] ? card(left[1], "behind") : ""}${card(left[0], "top")}</div>
       <div class="actions"><button class="round no" id="nope" aria-label="Non">${ICON.no}</button><button class="round yes" id="like" aria-label="Oui">${ICON.yes}</button></div>`;
   }
-  const share = S.solo ? "" : `<p class="note">Invitez vos amis : ils ouvrent cette page, touchent « Rejoindre » et tapent <b>${S.code}</b>.</p>`;
+  const invite = S.B?.kind === "server" ? `${location.origin}/#${S.code}` : "";
+  const share = S.solo ? "" : invite
+    ? `<div class="stack-v"><p class="note">Invitez vos amis avec ce lien, ou le code <b>${S.code}</b> :</p>
+       <div class="row"><input class="code name" id="invite" readonly value="${esc(invite)}" style="font-size:14px"><button class="btn ghost" id="copy">${S.copied ? "Copié" : "Copier"}</button></div></div>`
+    : `<p class="note">Invitez vos amis : ils ouvrent cette page, touchent « Rejoindre » et tapent <b>${S.code}</b>.</p>`;
   const ov = S.overlay ? `<div class="overlay" id="overlay" role="dialog" aria-label="C'est un match"><div class="box">
       <div class="big">C'est un match&nbsp;!</div><div class="thumb" style="--h1:${S.overlay.h1};--h2:${S.overlay.h2}">${art(S.overlay, true)}</div>
       <h2>${esc(S.overlay.t)}</h2><p class="lead">${facts(S.overlay)} · sur ${PLATFORMS[S.overlay.p].name}</p>
@@ -656,10 +664,18 @@ const toggle = (arr, v) => arr.includes(v) ? arr.filter((x) => x !== v) : [...ar
 function bind() {
   const on = (id, fn) => { const el = $("#" + id); if (el) el.onclick = fn; };
   const all = (sel, fn) => document.querySelectorAll(sel).forEach((b) => b.onclick = () => { fn(b); render(); });
-  on("go-create", () => { S.screen = "create"; render(); });
+  const nameEl = $("#my-name");
+  if (nameEl) nameEl.oninput = () => { S.name = nameEl.value.trim(); store.set("cinematch:name", S.name); };
+  const needName = () => { if (S.B?.kind !== "server" || S.name) return false; S.err = "Indique ton prénom pour que tes amis te reconnaissent."; render(); $("#my-name")?.focus(); return true; };
+  on("go-create", () => { if (needName()) return; S.err = ""; S.screen = "create"; render(); });
+  on("copy", async () => {
+    const el = $("#invite");
+    try { await navigator.clipboard.writeText(el.value); S.copied = true; render(); setTimeout(() => { S.copied = false; render(); }, 2000); }
+    catch { el.select(); }
+  });
   on("back", () => { S.screen = "home"; render(); });
   on("leave", () => { leaveRoom(); S.screen = "home"; render(); });
-  on("go-join", () => joinRoom(($("#join-code")?.value || "").trim().toUpperCase()));
+  on("go-join", () => { if (!needName()) joinRoom(($("#join-code")?.value || "").trim().toUpperCase()); });
   const jc = $("#join-code"); if (jc) jc.onkeydown = (e) => { if (e.key === "Enter") $("#go-join").click(); };
   on("create", createRoom);
   on("toggle-list", () => { S.showList = !S.showList; render(); });
@@ -732,7 +748,82 @@ function checkNewMatches() {
   S.knownMatches = now;
 }
 
-// ---------- Salons et données partagées ----------
+// ---------- Où sont gardés les salons ----------
+// Trois cas : la page est un Artifact claude.ai (base de données de claude.ai), elle est servie par
+// server.js (Render), ou ni l'un ni l'autre (mode solo, votes gardés dans ce navigateur).
+// Chaque « backend » sait : créer un salon, le relire, enregistrer mes votes, suivre les votes des autres.
+
+function claudeBackend(db, user) {
+  return {
+    kind: "claude",
+    async createRoom(room) {
+      let code = newCode();
+      for (let i = 0; i < 5 && (await db.doc("rooms/" + code).get()).exists; i++) code = newCode();
+      await db.doc("rooms/" + code).set(room);
+      return code;
+    },
+    async getRoom(code) { const d = await db.doc("rooms/" + code).get(); return d.exists ? d.data() : null; },
+    async saveVotes() { await db.doc("votes/" + S.me).set({ rooms: S.myVotes }); },
+    watch(code, cb) {
+      return db.collection("votes").onSnapshot(async (snap) => {
+        const members = {};
+        for (const d of snap.docs) { const r = d.data()?.rooms?.[code]; if (r) members[d.id] = { votes: r }; }
+        const unknown = Object.keys(members).filter((id) => !S.profiles[id]);
+        if (unknown.length) { try { Object.assign(S.profiles, await user.profiles(unknown)); } catch {} }
+        cb(members);
+      }, () => {});
+    },
+  };
+}
+
+function serverBackend() {
+  const call = async (method, url, body) => {
+    const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "erreur " + r.status);
+    return r.json();
+  };
+  // Le serveur gratuit de Render oublie les salons quand il s'endort : si on connaît les réglages
+  // du salon, on le recrée avec le même code.
+  const known = () => store.get("cinematch:rooms") || {};
+  const remember = (code, room) => store.set("cinematch:rooms", { ...known(), [code]: room });
+  const ensureRoom = async (code) => {
+    if (await call("GET", `/api/rooms/${code}`)) return;
+    if (known()[code]) await call("POST", "/api/rooms", { code, settings: known()[code] });
+  };
+  const B = {
+    kind: "server",
+    async createRoom(room) { const { code } = await call("POST", "/api/rooms", { settings: room }); remember(code, room); return code; },
+    async getRoom(code) {
+      const r = await call("GET", `/api/rooms/${code}`);
+      if (r) { remember(code, r.settings); return r.settings; }
+      if (known()[code]) { await ensureRoom(code); return known()[code]; }
+      return null;
+    },
+    async saveVotes(code) {
+      store.set("cinematch:server-votes", S.myVotes);
+      const ok = await call("PUT", `/api/rooms/${code}/members/${S.me}`, { name: S.name, votes: S.myVotes[code] || {} });
+      if (ok === null) { await ensureRoom(code); await call("PUT", `/api/rooms/${code}/members/${S.me}`, { name: S.name, votes: S.myVotes[code] || {} }); }
+    },
+    watch(code, cb) {
+      let es = null, timer = null, closed = false;
+      const connect = async () => {
+        if (closed) return;
+        // À chaque (re)connexion : le salon existe-t-il encore ? Mes votes y sont-ils ?
+        try { await ensureRoom(code); await B.saveVotes(code); } catch {}
+        if (closed) return;
+        es = new EventSource(`/api/rooms/${code}/events`);
+        es.onmessage = (e) => { try { cb(JSON.parse(e.data).members || {}); } catch {} };
+        es.onerror = () => { es.close(); if (!closed) timer = setTimeout(connect, 3000); };
+      };
+      connect();
+      return () => { closed = true; es?.close(); clearTimeout(timer); };
+    },
+  };
+  return B;
+}
+
+// ---------- Salons ----------
 function enterRoom(code, raw) {
   const room = withDefaults(raw);
   S.code = code; S.room = room; S.screen = "room"; S.tab = "swipe"; S.knownMatches = null; S.overlay = null;
@@ -742,17 +833,21 @@ function enterRoom(code, raw) {
   S.votes = { [S.me]: S.myVotes[code] || {} };
   store.set("cinematch:last", code);
   if (S.solo) { checkNewMatches(); render(); return; }
-  if (!S.myVotes[code]) { S.myVotes[code] = {}; saveVotes(); }
-  S.unsubVotes = S.db.collection("votes").onSnapshot(async (snap) => {
+  if (!S.myVotes[code]) { S.myVotes[code] = {}; if (S.B.kind === "claude") saveVotes(); }
+  S.unsubVotes = S.B.watch(code, (members) => {
+    if (S.code !== code) return;
     const next = {};
-    for (const d of snap.docs) { const r = d.data()?.rooms?.[code]; if (r) next[d.id] = r; }
-    next[S.me] = S.votes[S.me] || {};
+    for (const [id, m] of Object.entries(members)) {
+      next[id] = m.votes || {};
+      if (m.name) S.profiles[id] = { ...(S.profiles[id] || {}), name: m.name };
+    }
+    // Retrouver mes votes si ce navigateur les a perdus mais que le salon les connaît.
+    if (!Object.keys(S.myVotes[code] || {}).length && Object.keys(next[S.me] || {}).length) S.myVotes[code] = next[S.me];
+    next[S.me] = S.myVotes[code] || {};
     S.votes = next;
-    const unknown = Object.keys(next).filter((id) => !S.profiles[id]);
-    if (unknown.length && S.user) { try { Object.assign(S.profiles, await S.user.profiles(unknown)); } catch {} }
     checkNewMatches();
     if (!$(".card.top")?.dataset.gone) render();
-  }, () => {});
+  });
   render();
 }
 
@@ -760,27 +855,30 @@ function leaveRoom() {
   S.unsubVotes?.(); S.unsubVotes = null;
   S.code = null; S.room = null; S.overlay = null;
   store.set("cinematch:last", null);
+  if (location.hash) history.replaceState(null, "", location.pathname);
 }
 
 async function createRoom() {
   const x = S.draft;
   const room = { type: x.type, platforms: x.platforms.slice(), genres: x.genres.slice(), decades: x.decades.slice(),
-    director: x.director, tier: x.tier, by: S.me || "solo", at: Date.now() };
+    director: x.director, tier: x.tier };
   if (S.solo) { store.set("cinematch:solo-room", room); S.myVotes.SOLO = {}; return enterRoom("SOLO", room); }
-  let code = newCode();
   try {
-    for (let i = 0; i < 5 && (await S.db.doc("rooms/" + code).get()).exists; i++) code = newCode();
-    await S.db.doc("rooms/" + code).set(room);
-    enterRoom(code, room);
-  } catch (e) { S.screen = "home"; S.err = "Impossible de créer le salon. Demandez à la personne qui a partagé la page un accès « Contributeur »."; render(); }
+    enterRoom(await S.B.createRoom(room), room);
+  } catch (e) {
+    S.screen = "home";
+    S.err = S.B.kind === "claude" ? "Impossible de créer le salon. Demandez à la personne qui a partagé la page un accès « Contributeur »."
+      : "Impossible de créer le salon : le serveur ne répond pas. Réessayez dans un instant.";
+    render();
+  }
 }
 
 async function joinRoom(code) {
   if (!/^[A-Z]{4}$/.test(code)) { S.err = "Le code fait 4 lettres."; return render(); }
   try {
-    const d = await S.db.doc("rooms/" + code).get();
-    if (!d.exists) { S.err = `Aucun salon ${code}. Vérifiez le code avec vos amis.`; return render(); }
-    S.err = ""; enterRoom(code, d.data());
+    const room = await S.B.getRoom(code);
+    if (!room) { S.err = `Aucun salon ${code}. Vérifiez le code avec vos amis.`; return render(); }
+    S.err = ""; enterRoom(code, room);
   } catch { S.err = "Connexion impossible pour le moment. Réessayez."; render(); }
 }
 
@@ -790,30 +888,52 @@ async function saveVotes() {
   if (S.solo) { store.set("cinematch:solo-votes", S.myVotes); return; }
   if (saving) { pending = true; return; }
   saving = true;
-  try { await S.db.doc("votes/" + S.me).set({ rooms: S.myVotes }); } catch {}
+  try { await S.B.saveVotes(S.code); } catch {}
   saving = false;
   if (pending) { pending = false; saveVotes(); }
 }
 
 // ---------- Démarrage ----------
+async function pickBackend() {
+  if (typeof window.claude?.use === "function") {
+    const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+    const id = user ? await user.id() : null;
+    if (db && id) {
+      S.me = id;
+      try { Object.assign(S.profiles, await user.profiles([id])); } catch {}
+      try { const mine = await db.doc("votes/" + id).get(); S.myVotes = mine.data()?.rooms || {}; } catch {}
+      return claudeBackend(db, user);
+    }
+    return null;
+  }
+  try {
+    const r = await fetch("/api/health", { cache: "no-store" });
+    if (r.ok && (await r.json()).ok) {
+      S.me = store.get("cinematch:uid") || Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => (b % 36).toString(36)).join("");
+      store.set("cinematch:uid", S.me);
+      S.name = store.get("cinematch:name") || "";
+      S.myVotes = store.get("cinematch:server-votes") || {};
+      return serverBackend();
+    }
+  } catch {}
+  return null;
+}
+
 (async function start() {
   render();
-  const hasClaude = typeof window.claude?.use === "function";
-  const [db, user] = hasClaude ? await Promise.all([window.claude.use("db"), window.claude.use("user")]) : [null, null];
-  S.db = db; S.user = user;
-  S.me = user ? await user.id() : null;
-  if (!db || !S.me) {
-    S.solo = true; S.me = "moi";
-    S.myVotes = store.get("cinematch:solo-votes") || {};
-  } else {
-    try { Object.assign(S.profiles, await user.profiles([S.me])); } catch {}
-    try { const mine = await db.doc("votes/" + S.me).get(); S.myVotes = mine.data()?.rooms || {}; } catch {}
-  }
+  S.B = await pickBackend();
+  if (!S.B) { S.solo = true; S.me = "moi"; S.myVotes = store.get("cinematch:solo-votes") || {}; }
   S.ready = true;
-  const last = store.get("cinematch:last");
+  // Un lien d'invitation se termine par #CODE.
+  const fromLink = /^#[A-Za-z]{4}$/.test(location.hash) ? location.hash.slice(1).toUpperCase() : null;
+  const last = fromLink || store.get("cinematch:last");
   if (last === "SOLO" && S.solo && store.get("cinematch:solo-room")) enterRoom("SOLO", store.get("cinematch:solo-room"));
-  else if (last && !S.solo) await joinRoom(last).then(() => { if (S.screen !== "room") { S.err = ""; render(); } });
-  else render();
+  else if (last && !S.solo && (S.name || S.B.kind !== "server")) await joinRoom(last).then(() => { if (S.screen !== "room" && !fromLink) { S.err = ""; render(); } });
+  else {
+    if (fromLink && !S.solo) S.err = `Indique ton prénom puis touche « Rejoindre » pour entrer dans le salon ${fromLink}.`;
+    S.pendingCode = fromLink;
+    render();
+  }
 })();
 </script>
 

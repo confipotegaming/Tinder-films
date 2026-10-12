@@ -1,0 +1,11 @@
+# Réglages Render (utilisés si le service est créé via « New > Blueprint »).
+services:
+  - type: web
+    name: tinder-films
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true

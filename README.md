@@ -36,25 +36,40 @@ depuis la racine du dépôt, puis mettre à jour la liste `POSTERS` dans `index.
 
 ## Jouer à plusieurs
 
-Le mode à plusieurs (salons partagés, matchs en direct) fonctionne quand la page est
-ouverte comme Artifact sur claude.ai, qui fournit la base de données partagée.
-Ouverte directement dans un navigateur (ou sur GitHub Pages), la page passe en
-**mode solo** : on trie seul et la liste « Matchs » montre ses coups de cœur.
-Pour jouer à plusieurs en dehors de claude.ai, il faudrait ajouter un petit serveur.
+La page fonctionne à trois endroits :
+
+- **Sur Render** (https://tinder-films.onrender.com) : `server.js` gère les salons. Chacun
+  donne son prénom ; on invite ses amis avec le lien du salon (il finit par `#CODE`) ou
+  avec le code de 4 lettres. Les matchs arrivent en direct chez tout le monde.
+- **Sur claude.ai** (Artifact) : les salons passent par la base de données de claude.ai.
+- **Ailleurs** (fichier ouvert directement) : mode solo, votes gardés dans le navigateur.
+
+Sur l'offre gratuite de Render, le serveur s'endort après 15 minutes sans visite : la
+première ouverture prend alors environ une minute, et le serveur a oublié les salons.
+Ce n'est pas grave : dès qu'un joueur revient, sa page renvoie le salon et ses votes.
 
 ## Mettre en ligne sur Render
 
-Créer un **Web Service** relié à ce dépôt, avec :
+Dans le service Render (**Settings**) :
 
 | Réglage | Valeur |
 | --- | --- |
 | Language | Node |
 | Branch | `main` |
+| Root Directory | *(vide)* |
 | Build Command | `npm install` |
 | Start Command | `npm start` |
+| Health Check Path | `/api/health` |
 
-`server.js` sert la page et les affiches sur le port donné par Render. Sur ordinateur :
-`npm start` puis ouvrir http://localhost:3000.
+Puis **Manual Deploy > Deploy latest commit**. Le fichier `render.yaml` contient les
+mêmes réglages, pour créer le service d'un coup avec **New > Blueprint**.
 
-(Autre possibilité : un **Static Site** Render, avec une Build Command vide et
-`.` comme Publish Directory.)
+Sur ordinateur : `npm start`, puis ouvrir http://localhost:3000.
+
+## Comment c'est construit
+
+| Fichier | Rôle |
+| --- | --- |
+| `server.js` | Sert la page et les affiches ; API des salons (`/api/rooms`) avec mises à jour en direct |
+| `package.json` | Commandes pour Render (`npm start`) ; aucune dépendance |
+| `render.yaml` | Réglages Render prêts à l'emploi |
